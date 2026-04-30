@@ -1,118 +1,83 @@
-# HACS Custom Card Boilerplate
+# Meshtastic Chat Card
 
-This guide acts as a basis for creating new HA lovelace cards. It features:
+A custom [Lovelace](https://www.home-assistant.io/dashboards/) card for [Home Assistant](https://www.home-assistant.io/) that displays Meshtastic channel messages recorded by the [`meshtastic` integration](https://github.com/meshtastic/home-assistant).
 
-- The code and repository structure for a basic card
-- Using TypeScript and rollup for building releases
-- Config UI editor with:
-  - Entity list to support multiple entities
-  - Some dummy sample settings
-  - Supporting actions
+## Features
 
-Plus, I wanted to document, how such a card can be developed straight in Home Assistant's Studio Code Server (vscode).
+- **History backfill** – on load, pulls up to 7 days of past messages from the HA logbook (`logbook/get_events`).
+- **Live updates** – subscribes to the `meshtastic_message_log` event bus so new messages appear instantly without a page refresh.
+- **Auto-scroll** – automatically scrolls to the latest message; pauses auto-scroll when you scroll up, and resumes when you scroll back to the bottom.
+- **PKI / direct-message badge** – optionally shows a 🔒 badge next to messages delivered over an encrypted direct link.
+- **Visual editor** – all options are configurable through the Lovelace UI editor; no YAML required.
+- **Channel auto-discovery** – when adding a new card, the editor pre-selects the primary Meshtastic channel entity if one exists.
+- **Message deduplication** – messages received from both history and the live event stream are deduplicated so nothing appears twice.
 
-Creating a complex card might require a lot of things - getting familiar with how to create Lit components, how to reuse existing small UI building blocks from HA, how to manage actions, how to work with the editor, styling issues, calling services or firing HA events, and so on... For me the most difficult step was deciding to get started (not knowing how difficult this will be), and pull together the basics and learn the foundations. While I can't include everything in this guide and boilerplate, I wanted to give a working basic setup to the community, to make it easier for others to get started. Maybe without having the foundations you would never thought of developing your own card, but seeing how it works and how to get started, you end up creating an awesome card... Enjoy!
+## Requirements
 
-Feedback is welcome.
+- Home Assistant with the [`meshtastic` custom integration](https://github.com/meshtastic/home-assistant) installed and configured.
+- At least one Meshtastic gateway device added to HA with a channel entity (`device_class: channel`).
 
-Check out my other work at [https://github.com/tolnai/home_assistant_cookbook](https://github.com/tolnai/home_assistant_cookbook).
+## Installation
 
-## Environment Setup - Common
+### HACS (recommended)
 
-### VSCode
+1. Open **HACS → Frontend** in Home Assistant.
+2. Click the three-dot menu → **Custom repositories**.
+3. Add `https://github.com/ch0ppy35/meshtastic-integration-chat-log-card` with category **Dashboard**.
+4. Search for **Meshtastic Chat** and install it.
+5. Reload your browser.
 
-- Set up Studio Code Server integration, launch it - it will open the main config directory
+### Manual
 
-### GIT
+1. Download `meshtastic-chat-card.js` from the [latest release](https://github.com/ch0ppy35/meshtastic-integration-chat-log-card/releases).
+2. Copy the file to `config/www/meshtastic-chat-card.js` on your Home Assistant instance.
+3. Go to **Settings → Dashboards → Resources** and add `/local/meshtastic-chat-card.js` as a **JavaScript module**.
+4. Reload your browser.
 
-- Open terminal and configure your main details:
+## Usage
 
-```
-git config --global user.name "John Doe"
-git config --global user.email johndoe@example.com
-```
+Add the card via the Lovelace UI (**Add card → Meshtastic Chat**) or paste the YAML directly:
 
-- Then select "Publish to GitHub" command (ctrl+shift+P in vscode), which will prompt you to log in to github
-- Follow the instructions to authorize your vscode instance to connect to your account
-
-You're set, now you can use github directly from HA's vscode.
-
-### Node.js
-
-I recommend setting up Node.js with nvm, so that it's easier to switch to new versions.
-
-Open a terminal in vscode, and check the latest command from [https://github.com/nvm-sh/nvm](https://github.com/nvm-sh/nvm):
-
-```
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+```yaml
+type: custom:meshtastic-chat-card
+channel_entity: meshtastic.my_gateway_channel_primary
 ```
 
-Then restart the terminal (or open a new terminal) so that nvm gets added to your path.
+### Configuration options
 
+| Option            | Type    | Default | Description                                                                 |
+|-------------------|---------|---------|-----------------------------------------------------------------------------|
+| `channel_entity`  | string  | —       | **Required.** Entity ID of the Meshtastic channel to display (`device_class: channel`). |
+| `title`           | string  | —       | Card title. Defaults to the channel entity's `friendly_name`.               |
+| `limit`           | number  | `200`   | Maximum number of messages to keep rendered (oldest are dropped first).     |
+| `show_timestamps` | boolean | `true`  | Show the `HH:MM` timestamp at the start of each message row.                |
+| `show_pki_badge`  | boolean | `true`  | Show a 🔒 badge on messages delivered via PKI / direct encrypted link.      |
+
+### Full YAML example
+
+```yaml
+type: custom:meshtastic-chat-card
+channel_entity: meshtastic.my_gateway_channel_primary
+title: "Base Camp Chat"
+limit: 100
+show_timestamps: true
+show_pki_badge: true
 ```
-nvm install 22
-nvm list
-npm install --global yarn
-corepack enable
-```
-
-This should install Node.js 22, and show that it is selected as the default version, then install the yarn package manager.
-
-## Environment Setup - Repository From Scratch
-
-### Create repository
-
-- Create a new folder in the main (config) folder
-- Use File / Add Folder to Workspace to add it as a root folder
-- Create your readme file, commit, then publish your changes, which will prompt you to create a new repository on github
-
-## Environment Setup - Repository From Boilerplate
-
-### Create repository
-
-- Fork this repository 
-- Use "git clone" from the terminal to clone your fork
-- Use File / Add Folder to Workspace to add it as a root folder
-
-## Customize this boilerplate
-
-Set your package `name`, `description`, `repository`, `author` in package.json, and add any new keywords you would like. Consider if MIT license is also good for you.
-
-Change default names (`hacs-boilerplate-card`, `HACS Boilerplate Card`, `HacsBoilerplateCard`, etc.) in the boilerplate, which you will need to replace in:
-
-- hacs.json
-- package.json
-- rollup.config.dev.js
-- rollup.config.js
-- src/index.ts
-
-Replace my name with yours in package.json and LICENSE
-
-Run `yarn` to install dependencies, then `yarn rollup` to create your first test build in the `dist` folder.
 
 ## Development
 
-During development, use DEV = true in index.ts, and run `yarn start` - this will build the development version of your card straight to the config's www folder (../www from this folder) and run rollup in watch mode, so any changes will issue an immediate rebuild.
+```bash
+# Install dependencies
+yarn install
 
-In your lovelace dashboard, switch to edit mode, select Manage resources from the menu, and add `/local/[your-card-name].js` as a new resource (javascript module). Reload the browser.
+# Start a development server with live rebuild (sets DEV=true in index.ts)
+yarn start
 
-While developing, open the browser's developer console, network tab, and check "disable cache". Otherwise, even if the .js file is rebuilt, the browser will not load the new version even after a refresh.
+# Production build → dist/meshtastic-chat-card.js
+yarn build
 
-Whenever you made some changes, rollup will build the code automatically, and after a refresh the new code will run in your lovelace dashboard as well.
+# Lint
+yarn lint
+```
 
-Happy coding! 😊 Check out the [official documentation](https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/) as well!
-
-## Release
-
-For the first release, you can keep the initial 1.0.0 version number.
-
-For a new release, do the below:
-
-- Increase the version in package.json (increase 1.x.0 for minor updates, and x.0.0 for major updates)
-- Add your changes to CHANGELOG.md
-- Push your changes to github
-- Create a production build with `yarn build` (with DEV = false in index.ts) to the dist folder
-- Create a new release in github with a new tag as well, for example tag 1.1.0, title "Version 1.1.0", and release description should be the same what you added to the changelog
-- Attach your built .js file to the release, then submit the release
-
-<a href="https://www.buymeacoffee.com/tolnai" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+The development build registers the card as `meshtastic-chat-card-dev` so it can coexist with a production build in the same HA instance. Set `DEV = false` in `src/index.ts` before cutting a release.

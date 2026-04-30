@@ -1,17 +1,19 @@
 {
-  "name": "hacs_custom_card_boilerplate",
-  "description": "Custom Card Boilerplate for Home Assistant - Sample HACS Card",
-  "repository": "https://github.com/tolnai/hacs_custom_card_boilerplate",
-  "author": "Gábor Tolnai",
+  "name": "meshtastic-chat-card",
+  "description": "Lovelace card that displays Meshtastic channel messages recorded by the meshtastic Home Assistant integration.",
+  "repository": "https://github.com/ch0ppy35/meshtastic-integration-chat-log-card",
+  "author": "mmiller",
   "version": "1.0.0",
-  "module": "hacs-boilerplate-card.js",
+  "module": "meshtastic-chat-card.js",
   "keywords": [
     "home-assistant",
     "homeassistant",
     "hass",
     "hacs",
     "lovelace",
-    "custom-cards"
+    "custom-cards",
+    "meshtastic",
+    "chat"
   ],
   "license": "MIT",
   "type": "module",
@@ -30,11 +32,12 @@
     "@rollup/plugin-json": "^6.0.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-terser": "^0.4.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "eslint": "9.21.0",
     "eslint-config-prettier": "10.0.2",
     "eslint-plugin-jest": "28.11.0",
+    "globals": "^17.5.0",
     "rollup": "^4.0.0",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-gzip": "^4.0.0",
@@ -46,7 +49,7 @@
   "scripts": {
     "start": "rollup -c rollup.config.dev.js --watch",
     "build": "yarn rollup",
-    "lint": "eslint **/*.ts --max-warnings 0",
+    "lint": "eslint src/ --max-warnings 0",
     "rollup": "rollup -c"
   },
   "packageManager": "yarn@4.9.1"

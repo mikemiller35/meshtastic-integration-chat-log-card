@@ -4,27 +4,98 @@ import { css } from 'lit';
 // https://lit.dev/docs/components/styles/
 export default css`
   ha-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
   }
-  .main {
+  .header {
     display: flex;
-    height: 100%;
-    margin: auto;
-    padding: 6px 16px 6px 16px;
-    width: 100%;
-    justify-content: space-around;
-    overflow-x: scroll;
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
   }
-  .name {
-    font-weight: 300;
-    font-size: var(--fontSize);
-    line-height: var(--fontSize);
-    cursor: pointer;
+  .header .title {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--primary-text-color);
+  }
+  .header .meta {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+  }
+  .messages {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 6px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .empty,
+  .error {
+    color: var(--secondary-text-color);
+    padding: 12px 16px;
+    font-style: italic;
+  }
+  .error {
+    color: var(--error-color, #db4437);
+    font-style: normal;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 8px;
+    align-items: baseline;
+    padding: 2px 4px;
+    border-radius: 6px;
+    line-height: 1.35;
+    font-size: 0.92rem;
+  }
+  .row:hover {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+  }
+  .row .time {
+    font-variant-numeric: tabular-nums;
+    color: var(--secondary-text-color);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .row .body {
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .row .from {
+    font-weight: 600;
+    color: var(--primary-text-color);
+    margin-right: 4px;
+  }
+  .row .from::after {
+    content: ':';
+    margin-left: 1px;
+    color: var(--secondary-text-color);
+    font-weight: 400;
+  }
+  .row .text {
+    color: var(--primary-text-color);
+  }
+  .row .pki {
+    margin-left: 4px;
+    font-size: 0.85em;
+  }
+  .row.live-flash {
+    animation: flash 1.2s ease-out 1;
+  }
+  @keyframes flash {
+    from {
+      background: var(--primary-color, #03a9f4);
+      color: var(--text-primary-color, #fff);
+    }
+    to {
+      background: transparent;
+    }
   }
 `;

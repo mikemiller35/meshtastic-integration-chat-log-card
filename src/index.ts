@@ -1,474 +1,354 @@
-import { LitElement, html, type TemplateResult, type CSSResultGroup } from 'lit';
+import { LitElement, html, nothing, type TemplateResult, type CSSResultGroup, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import {
-  type HomeAssistant,
-  hasAction,
-  type ActionHandlerEvent,
-  handleAction,
-  type ActionConfig,
-} from 'custom-card-helpers'; // This is a community maintained npm module with common helper functions/types. https://github.com/custom-cards/custom-card-helpers
+import { repeat } from 'lit/directives/repeat.js';
+import { type HomeAssistant } from 'custom-card-helpers';
 import { type HassEntity } from 'home-assistant-js-websocket';
 
 import styles from './styles';
 import editStyles from './styles-edit';
-import { actionHandler } from './ha-action-handler-directive';
 import { version } from '../package.json';
 
-// Use this if you want both the dev and prod versions installed in the same instance - they will have different names
-// For local development use true, but change it to true whenever building a new release
-const DEV = false;
+import { DEFAULT_LIMIT, type ChatCardConfig, type ChatMessage } from './types';
+import { loadHistory } from './history';
+import { subscribeMessageLog, type Unsubscribe } from './live';
+import { pickDefaultChannelEntity } from './discovery';
 
-// Change these values to your card's name, description and URL
-const cardId = 'hacs-boilerplate-card';
-const cardName = 'HACS Boilerplate Card';
-const cardDescription = 'Custom Card Boilerplate for Home Assistant - Sample HACS Card';
-const cardUrl = 'https://github.com/tolnai/hacs_custom_card_boilerplate';
+// Use this if you want both the dev and prod versions installed in the same instance.
+// For local development use true, but change it to false whenever building a new release.
+const DEV = false as boolean;
 
-export type MyEntityConfig = {
-  entity: string;
-  name?: string;
-  sampleFlag?: boolean;
-  tap_action?: ActionConfig;
-  hold_action?: ActionConfig;
-  double_tap_action?: ActionConfig;
-};
+const cardId = 'meshtastic-chat-card';
+const cardName = 'Meshtastic Chat';
+const cardDescription = 'Display Meshtastic channel messages recorded by the meshtastic Home Assistant integration.';
+const cardUrl = 'https://github.com/mmiller/meshtastic-integration-chat-log-card';
 
-type MyCardConfig = {
-  entities: MyEntityConfig[];
-  sampleText?: string;
-  sampleEnum?: 'one' | 'two' | 'three';
-  sampleFlag?: boolean;
-  sampleNumber?: number;
-  sampleIcon?: string;
-  tap_action?: ActionConfig;
-  hold_action?: ActionConfig;
-  double_tap_action?: ActionConfig;
-};
-
-// Extend the Window interface to include loadCardHelpers
 declare global {
   interface Window {
-    loadCardHelpers?: () => Promise<any>;
+    loadCardHelpers?: () => Promise<unknown>;
+    customCards?: { type: string; name: string; preview?: boolean; description?: string; documentationURL?: string }[];
   }
 }
 
 const loadHaForm = async () => {
-  if (customElements.get('ha-form') && customElements.get('hui-entities-card-editor')) return;
-  if (window.loadCardHelpers) {
-    const helpers = await window.loadCardHelpers();
-    if (!helpers) return;
-    const card = await helpers.createCardElement({ type: 'entities', entities: [] });
-    if (!card) return;
-    card.constructor.getConfigElement();
-  }
+  if (customElements.get('ha-form')) return;
+  if (!window.loadCardHelpers) return;
+  const helpers = (await window.loadCardHelpers()) as { createCardElement?: (cfg: unknown) => unknown } | undefined;
+  if (!helpers?.createCardElement) return;
+  const card = helpers.createCardElement({ type: 'entities', entities: [] }) as
+    | { constructor: { getConfigElement?: () => void } }
+    | undefined;
+  card?.constructor.getConfigElement?.();
 };
 
+// eslint-disable-next-line no-console
 console.info(
   `%c ${cardName}${DEV ? ' DEV' : ''} \n%c Version v${version}`,
   'color: orange; font-weight: bold; background: black',
   'color: white; font-weight: bold; background: dimgray',
 );
 
-// This puts your card into the UI card picker dialog
-// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards ?? [];
+window.customCards.push({
   type: `${cardId}${DEV ? '-dev' : ''}`,
   name: `${cardName}${DEV ? ' DEV' : ''}`,
-  preview: false, // Optional - defaults to false
+  preview: false,
   description: cardDescription,
   documentationURL: cardUrl,
 });
 
 @customElement(`${cardId}${DEV ? '-dev' : ''}`)
-export class HacsBoilerplateCard extends LitElement {
+export class MeshtasticChatCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @state() private config!: MyCardConfig;
-  @state() private error?: TemplateResult;
+  @state() private _config?: ChatCardConfig;
+  @state() private _messages: ChatMessage[] = [];
+  @state() private _error?: string;
+  @state() private _loading = false;
 
-  private counter = 0;
+  private _unsubscribe?: Unsubscribe;
+  private _subscribedEntity?: string;
+  private _autoStick = true;
+  private _scrollEl?: HTMLElement | null;
+  private _flashIds = new Set<string>();
 
-  constructor() {
-    super();
-  }
-
-  // Connecting the editor to the card
   static getConfigElement() {
     return document.createElement(`${cardId}-editor${DEV ? '-dev' : ''}`);
   }
 
-  // This is the default config when creating a new card
-  static getStubConfig() {
-    return { entities: [] };
+  static getStubConfig(hass: HomeAssistant): Partial<ChatCardConfig> {
+    const channel_entity = pickDefaultChannelEntity(hass);
+    return {
+      channel_entity: channel_entity ?? '',
+      limit: DEFAULT_LIMIT,
+      show_timestamps: true,
+      show_pki_badge: true,
+    };
   }
 
-  // This is called when the config is changed/loaded
-  public setConfig(config?: MyCardConfig) {
+  public setConfig(config?: ChatCardConfig) {
     if (!config) {
-      throw this.createError('Invalid configuration.');
+      throw new Error('Invalid configuration.');
     }
-    if (!config.entities) {
-      throw this.createError('You need to define entities.');
+    if (!config.channel_entity || typeof config.channel_entity !== 'string') {
+      throw new Error('You need to set `channel_entity` (a meshtastic channel entity).');
     }
-    config.entities.forEach((entity, i) => {
-      if (entity.entity === undefined) {
-        throw this.createError(`Entity ${i + 1} is invalid! Must be an object, having an entity key.`);
-      }
-    });
-    this.config = config;
+    if (config.limit !== undefined && (typeof config.limit !== 'number' || config.limit <= 0)) {
+      throw new Error('`limit` must be a positive number.');
+    }
+    this._config = {
+      limit: DEFAULT_LIMIT,
+      show_timestamps: true,
+      show_pki_badge: true,
+      ...config,
+    };
   }
 
-  // Initial (non-grid) size
   public getCardSize() {
-    return 3;
-  }
-
-  // Action handling logic (handles fallback from entity action to global card default action)
-  private handleAction(event: ActionHandlerEvent, entityConfig: MyEntityConfig): void {
-    if (this.hass && this.config && event.detail.action) {
-      event.preventDefault();
-      event.stopPropagation();
-      handleAction(
-        this,
-        this.hass,
-        entityConfig.tap_action ? entityConfig : this.config.tap_action ? this.config : { ...entityConfig, tap_action: { action: 'more-info' } as ActionConfig },
-        event.detail.action,
-      );
-    }
-  }
-
-  private createError(errorString: string): Error {
-    const error = new Error(errorString);
-    const errorCard = document.createElement('hui-error-card') as any;
-    (errorCard as any).setConfig({
-      type: 'error',
-      error,
-      origConfig: this.config,
-    });
-    this.error = html`${errorCard}`;
-    return error;
-  }
-
-  _callService(entityConfig: MyEntityConfig, stateObj: HassEntity) {
-    // entity details can be checked in stateObj, or this.hass.states[stateObj.entity_id].(attributes|state)
-    //sample event or service call
-    if (entityConfig.sampleFlag) {
-      this._fireSampleHassEvent(stateObj.entity_id);
-    } else {
-      this.hass.callService('light', 'toggle', {
-        entity_id: stateObj.entity_id,
-      });
-    }
-    this.counter += 1;
-    // this could be used if we need to force a re-render
-    this.requestUpdate();
-}
-
-  _fireSampleHassEvent(entityId: string) {
-    this._fireHassEvent('hass-more-info', { entityId });
-  }
-
-  _fireHassEvent(type: string, detail?: any) {
-    const e = new CustomEvent(type, {
-      detail: detail === null || detail === undefined ? {} : detail,
-      bubbles: true,
-      cancelable: false,
-      composed: true,
-    });
-    this.dispatchEvent(e);
-    return e;
+    return 6;
   }
 
   static get styles(): CSSResultGroup {
     return styles;
   }
 
-  _renderButton(entityConfig: MyEntityConfig, stateObj: HassEntity) {
-    return html`
-      <span
-        @click=${() => this._callService(entityConfig, stateObj)}
-      >
-        Click me
-      </p>
-    `;
+  public connectedCallback(): void {
+    super.connectedCallback();
+    this._maybeStart();
   }
-  
-  _renderName(entityConfig: MyEntityConfig, stateObj: HassEntity) {
-    const nameSize = `${this.config.sampleNumber ?? 14}px`;
-    // variables can be passed to the CSS style code like below
-    return html`
-      <p
-        class="name"
-        style="--fontSize:${nameSize};"
-        @action=${(e: ActionHandlerEvent) => {
-          this.handleAction(e, entityConfig);
-        }}
-        .actionHandler=${actionHandler({
-          hasHold: hasAction(entityConfig.hold_action || this.config.hold_action),
-          hasDoubleClick: hasAction(entityConfig.double_tap_action || this.config.double_tap_action),
-        })}
-      >
-        ${entityConfig.name || stateObj.attributes.friendly_name}
-      </p>
-    `;
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._teardown();
   }
-  
-  _renderEntity(entityConfig: MyEntityConfig) {
-    const stateObj = this.hass.states[entityConfig.entity];
-    if (!stateObj) {
-      return html``;
+
+  protected willUpdate(changed: PropertyValues): void {
+    if (changed.has('hass') || changed.has('_config')) {
+      this._maybeStart();
+    }
+  }
+
+  private _maybeStart(): void {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!this.isConnected || !this.hass || !this._config) return;
+    const target = this._config.channel_entity;
+    if (!target) return;
+    if (this._subscribedEntity === target) return;
+    void this._restart(target);
+  }
+
+  private async _restart(entityId: string): Promise<void> {
+    this._teardown();
+    this._subscribedEntity = entityId;
+    this._error = undefined;
+    this._messages = [];
+    this._loading = true;
+    try {
+      const [history, unsub] = await Promise.all([
+        loadHistory(this.hass, entityId),
+        subscribeMessageLog(this.hass, entityId, (msg) => { this._appendMessage(msg); }),
+      ]);
+      // Guard against teardown/restart while we awaited.
+      if (this._subscribedEntity !== entityId) {
+        unsub();
+        return;
+      }
+      this._unsubscribe = unsub;
+      this._messages = this._trim(history);
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+    } finally {
+      if (this._subscribedEntity === entityId) this._loading = false;
+    }
+  }
+
+  private _teardown(): void {
+    if (this._unsubscribe) {
+      try {
+        this._unsubscribe();
+      } catch {
+        // ignore
+      }
+      this._unsubscribe = undefined;
+    }
+    this._subscribedEntity = undefined;
+  }
+
+  private _trim(messages: ChatMessage[]): ChatMessage[] {
+    const limit = this._config?.limit ?? DEFAULT_LIMIT;
+    if (messages.length <= limit) return messages;
+    return messages.slice(messages.length - limit);
+  }
+
+  private _appendMessage(msg: ChatMessage): void {
+    if (this._messages.some((m) => m.id === msg.id)) return;
+    this._flashIds.add(msg.id);
+    this._messages = this._trim([...this._messages, msg]);
+  }
+
+  protected updated(changed: PropertyValues): void {
+    if (changed.has('_messages') && this._autoStick) {
+      this._scrollToBottom();
+    }
+  }
+
+  private _onScroll = (ev: Event): void => {
+    const el = ev.currentTarget as HTMLElement;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    this._autoStick = distance < 24;
+  };
+
+  private _scrollToBottom(): void {
+    const el = this._scrollEl ?? this.renderRoot.querySelector<HTMLElement>('.messages');
+    this._scrollEl = el;
+    if (!el) return;
+    // Defer to after the DOM has actually rendered the new row.
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }
+
+  private _formatTime(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  private _renderRow(msg: ChatMessage): TemplateResult {
+    const showTime = this._config?.show_timestamps !== false;
+    const showPki = this._config?.show_pki_badge !== false;
+    const flash = this._flashIds.has(msg.id);
+    if (flash) {
+      // Clear the flash flag once it's been consumed in a render pass.
+      queueMicrotask(() => this._flashIds.delete(msg.id));
     }
     return html`
-      <div>
-        ${this._renderName(entityConfig, stateObj)}
-        ${this._renderButton(entityConfig, stateObj)}
+      <div class="row ${flash ? 'live-flash' : ''}" title=${new Date(msg.time).toLocaleString()}>
+        <span class="time">${showTime ? this._formatTime(msg.time) : nothing}</span>
+        <span class="body">
+          <span class="from">${msg.fromName}</span>
+          <span class="text">${msg.message}</span>
+          ${showPki && msg.pki ? html`<span class="pki" title="PKI / direct">🔒</span>` : nothing}
+        </span>
       </div>
     `;
   }
 
-  // https://lit.dev/docs/components/rendering/
   protected render(): TemplateResult {
-    if (this.error) {
-      return this.error;
+    if (!this._config) {
+      return html`<ha-card><div class="error">Card not configured.</div></ha-card>`;
     }
+    const stateObj = this.hass.states[this._config.channel_entity] as HassEntity | undefined;
+    const channelLabel =
+      this._config.title ??
+      stateObj?.attributes.friendly_name ??
+      this._config.channel_entity;
 
     return html`
       <ha-card>
-        <div class="main">
-          ${this.config.entities.length === 0 ? html` You need to define entities ` : ''}
-          ${this.config.entities.map((entityConfig) => this._renderEntity(entityConfig))}
+        <div class="header">
+          <div class="title">${channelLabel}</div>
+          <div class="meta">
+            ${this._loading
+              ? 'Loading…'
+              : `${String(this._messages.length)} message${this._messages.length === 1 ? '' : 's'}`}
+          </div>
         </div>
-        Counter: ${this.counter}
+        ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
+        ${!stateObj && !this._error
+          ? html`<div class="error">Channel entity not found: ${this._config.channel_entity}</div>`
+          : nothing}
+        <div class="messages" @scroll=${this._onScroll}>
+          ${this._messages.length === 0 && !this._loading && !this._error
+            ? html`<div class="empty">No messages yet.</div>`
+            : nothing}
+          ${repeat(
+            this._messages,
+            (m) => m.id,
+            (m) => this._renderRow(m),
+          )}
+        </div>
       </ha-card>
     `;
   }
 }
 
-// The below is the code for the editor UI of the card, which is a lit component as well.
 
-const actions: string[] = ['navigate', 'url', 'perform-action', 'none'];
+// ---------------------------------------------------------------------------
+// Visual editor
+// ---------------------------------------------------------------------------
 
 @customElement(`${cardId}-editor${DEV ? '-dev' : ''}`)
-export class HacsBoilerplateCardEditor extends LitElement {
+export class MeshtasticChatCardEditor extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @state() private _config!: MyCardConfig;
-  @state() private _selectedTab = 'entities';
-  @state() private _editingEntity: { index: number; elementConfig: MyEntityConfig } | null = null;
+  @state() private _config?: ChatCardConfig;
 
-  constructor() {
-    super();
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    loadHaForm();
-  }
-
-  setConfig(config: MyCardConfig) {
-    this._config = config;
-  }
-
-  // https://lit.dev/docs/components/styles/
   static get styles(): CSSResultGroup {
     return editStyles;
   }
 
-  _backClick(_e: Event) {
-    this._editingEntity = null;
+  public connectedCallback(): void {
+    super.connectedCallback();
+    void loadHaForm();
   }
 
-  _computeLabel(e) {
-    return e.label || e.name;
+  public setConfig(config: ChatCardConfig): void {
+    this._config = config;
   }
 
-  _valuesChanged(ev: CustomEvent) {
-    this._config = ev.detail.value;
-    this._publishConfig();
+  private _computeLabel = (schema: { label?: string; name?: string }): string => {
+    return schema.label ?? schema.name ?? '';
+  };
+
+  private _valueChanged = (ev: CustomEvent<{ value: ChatCardConfig }>): void => {
+    const next = ev.detail.value;
+    this._config = next;
+    this.dispatchEvent(
+      new CustomEvent('config-changed', {
+        detail: { config: next },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
-  _entitiesChanged(ev: CustomEvent) {
-    const _config = Object.assign({}, this._config);
-    _config.entities = ev.detail.entities;
-    this._config = _config;
-    this._publishConfig();
-  }
-
-  _entityChanged(ev: CustomEvent) {
-    if (!this._editingEntity) {
-      return;
-    }
-    this._config.entities[this._editingEntity.index] = ev.detail.value;
-    this._editingEntity.elementConfig = ev.detail.value;
-    this._publishConfig();
-  }
-
-  _publishConfig() {
-    const event = new CustomEvent('config-changed', {
-      detail: { config: this._config },
-      bubbles: true,
-      composed: true,
-    });
-    this.dispatchEvent(event);
-  }
-
-  _handleSwitchTab(ev: CustomEvent) {
-    this._selectedTab = ev.detail.name;
-  }
-
-  _editDetails(ev: CustomEvent) {
-    this._editingEntity = ev.detail.subElementConfig;
-  }
-
-  // This should include everything from the MyEntityConfig type
-  // Selectors can be found here: https://www.home-assistant.io/docs/blueprint/selectors/
-  _renderEntityEditor() {
-    return html`
-      <div><ha-icon-button-prev @click=${(e) => this._backClick(e)} /> Back</div>
-      <div class="box">
-        <h3>Entity</h3>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._editingEntity?.elementConfig}
-          .schema=${[
-            { name: 'entity', label: 'Entity', selector: { entity: { domain: 'cover' } }, required: true },
-            { name: 'name', label: 'Name', selector: { text: {} } },
-            { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._entityChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Actions (override defaults)</h3>
-        <p class="intro">Individual actions of this entity (override any default actions).</p>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._editingEntity?.elementConfig}
-          .schema=${[
-            { name: 'tap_action', label: 'Tap action', selector: { ui_action: { actions } } },
-            { name: 'hold_action', label: 'Hold action', selector: { ui_action: { actions } } },
-            { name: 'double_tap_action', label: 'Double tap action', selector: { ui_action: { actions } } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._entityChanged}
-        ></ha-form>
-      </div>
-    `;
-  }
-
-  _renderEntitiesEditor() {
-    return html`
-      <div class="box">
-        <hui-entities-card-row-editor
-          .hass=${this.hass}
-          .entities=${this._config.entities}
-          @entities-changed=${this._entitiesChanged}
-          @edit-detail-element=${this._editDetails}
-        ></hui-entities-card-row-editor>
-      </div>
-    `;
-  }
-
-  // This should include everything from the main MyCardConfig type
-  // Selectors can be found here: https://www.home-assistant.io/docs/blueprint/selectors/
-  _renderConfigurationEditor() {
-    return html`
-      <div class="box">
-        <h3>Layout</h3>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            {
-              name: 'sampleText', label: 'Gimme some text', selector: { text: {} },
-            },
-            {
-              name: 'sampleEnum',
-              label: 'Choose one',
-              selector: {
-                select: {
-                  options: [
-                    { label: 'One', value: 'one' },
-                    { label: 'Two', value: 'two' },
-                    { label: 'Three', value: 'three' },
-                  ],
-                  mode: 'dropdown',
-                },
-              },
-              required: true,
-            },
-            { name: 'sampleFlag', label: 'Do something?', selector: { boolean: {} } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Default visual settings</h3>
-        <p class="intro">These settings can be set globally here, or individually in the entity editor.</p>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            {
-              name: 'sampleNumber', label: 'A number, maybe a font size?', selector: { number: {} },
-            },
-            {
-              name: 'sampleIcon', label: 'Pick an icon', selector: { icon: {} },
-            },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-      <div class="box">
-        <h3>Default actions</h3>
-        <p class="intro">These settings can be set globally here, or individually in the entity editor.</p>
-        <ha-form
-          .hass=${this.hass}
-          .data=${this._config}
-          .schema=${[
-            { name: 'tap_action', label: 'Default tap action', selector: { ui_action: { actions } } },
-            { name: 'hold_action', label: 'Default hold action', selector: { ui_action: { actions } } },
-            { name: 'double_tap_action', label: 'Default double tap action', selector: { ui_action: { actions } } },
-          ]}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${this._valuesChanged}
-        ></ha-form>
-      </div>
-    `;
-  }
-
-  _renderContent() {
-    if (this._selectedTab === 'entities' && this._editingEntity !== null) {
-      return this._renderEntityEditor();
-    }
-
-    if (this._selectedTab === 'entities') {
-      return this._renderEntitiesEditor();
-    }
-    if (this._selectedTab === 'configuration') {
-      return this._renderConfigurationEditor();
-    }
-    return html``;
-  }
-
-  render() {
+  protected render(): TemplateResult {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!this.hass || !this._config) {
       return html``;
     }
+    const schema = [
+      {
+        name: 'channel_entity',
+        label: 'Channel entity',
+        required: true,
+        selector: { entity: { domain: 'meshtastic', device_class: 'channel' } },
+      },
+      { name: 'title', label: 'Title (optional)', selector: { text: {} } },
+      {
+        name: 'limit',
+        label: 'Max rendered messages',
+        selector: { number: { min: 10, max: 1000, step: 10, mode: 'box' } },
+      },
+      { name: 'show_timestamps', label: 'Show timestamps', selector: { boolean: {} } },
+      { name: 'show_pki_badge', label: 'Show PKI/DM 🔒 badge', selector: { boolean: {} } },
+    ];
 
     return html`
       <div class="card-config">
-        <div class="toolbar">
-          <sl-tab-group @sl-tab-show=${this._handleSwitchTab}>
-            <sl-tab slot="nav" panel="entities" .active=${this._selectedTab === 'entities'}>My Entities</sl-tab>
-            <sl-tab slot="nav" panel="configuration" .active=${this._selectedTab === 'configuration'}>Configuration</sl-tab>
-          </sl-tab-group>
+        <div class="box">
+          <ha-form
+            .hass=${this.hass}
+            .data=${this._config}
+            .schema=${schema}
+            .computeLabel=${this._computeLabel}
+            @value-changed=${this._valueChanged}
+          ></ha-form>
+          <p class="intro">
+            Pick a Meshtastic channel entity. The card backfills history from the
+            recorder and updates live via the <code>meshtastic_message_log</code> event.
+          </p>
         </div>
-        <div id="editor">${this._renderContent()}</div>
       </div>
     `;
   }

@@ -17,12 +17,13 @@ interface ActionHandlerElement extends HTMLElement {
   };
 }
 
-type ActionHandlerOptions = any;
+type ActionHandlerOptions = Record<string, unknown>;
 
 const getActionHandler = (): ActionHandler => {
   const body = document.body;
-  if (body.querySelector('action-handler')) {
-    return body.querySelector('action-handler') as ActionHandler;
+  const existing = body.querySelector<ActionHandler>('action-handler');
+  if (existing) {
+    return existing;
   }
 
   const actionhandler = document.createElement('action-handler');
@@ -33,9 +34,6 @@ const getActionHandler = (): ActionHandler => {
 
 export const actionHandlerBind = (element: ActionHandlerElement, options?: ActionHandlerOptions) => {
   const actionhandler: ActionHandler = getActionHandler();
-  if (!actionhandler) {
-    return;
-  }
   actionhandler.bind(element, options);
 };
 
@@ -46,6 +44,6 @@ export const actionHandler = directive(
       return noChange;
     }
 
-    render(_options?: ActionHandlerOptions) {}
+    render(_options?: ActionHandlerOptions) { return noChange; }
   },
 );

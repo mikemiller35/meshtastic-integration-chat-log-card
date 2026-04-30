@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 const rootConfigFiles = [".prettierrc.js", "eslint.config.mjs"];
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules"] },
+  { ignores: ["dist/**", "node_modules/**"] },
   // apply default config
   prettierConfig,
   eslint.configs.recommended,
