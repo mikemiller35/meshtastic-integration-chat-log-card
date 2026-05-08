@@ -1,13 +1,9 @@
-/**
- * @jest-environment jsdom
- */
-
 // Lit + jsdom render test for MeshtasticChatCard. This is intentionally a
 // minimal smoke test: we mount the card with a stubbed `hass`, fire a fake
 // `meshtastic_message_log` event through our stub `subscribeEvents`, and
 // assert that a row appears in the rendered output.
 
-import { beforeAll, describe, expect, it, jest } from '@jest/globals';
+import { beforeAll, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { HomeAssistant } from '../ha-types.js';
 import type { MeshtasticMessageLogEvent } from '../types.js';
@@ -15,13 +11,13 @@ import type { MeshtasticMessageLogEvent } from '../types.js';
 type SubscribeEventsFn = (cb: (event: MeshtasticMessageLogEvent) => void, eventType: string) => Promise<() => void>;
 
 interface FakeConnection {
-  subscribeEvents: jest.Mock<SubscribeEventsFn>;
+  subscribeEvents: Mock<SubscribeEventsFn>;
   emit: (event: MeshtasticMessageLogEvent) => void;
 }
 
 const makeConnection = (): FakeConnection => {
   let listener: ((event: MeshtasticMessageLogEvent) => void) | undefined;
-  const subscribeEvents = jest.fn<SubscribeEventsFn>().mockImplementation((cb) => {
+  const subscribeEvents = vi.fn<SubscribeEventsFn>().mockImplementation((cb) => {
     listener = cb;
     return Promise.resolve(() => undefined);
   });
@@ -44,8 +40,8 @@ const makeHass = (conn: FakeConnection): HomeAssistant => ({
       context: { id: '', user_id: null, parent_id: null },
     },
   },
-  callWS: jest.fn(() => Promise.resolve([])) as unknown as HomeAssistant['callWS'],
-  callService: jest.fn() as unknown as HomeAssistant['callService'],
+  callWS: vi.fn(() => Promise.resolve([])) as unknown as HomeAssistant['callWS'],
+  callService: vi.fn(),
   connection: conn as unknown as HomeAssistant['connection'],
 });
 
@@ -223,7 +219,7 @@ describe('MeshtasticChatCard render', () => {
     const conn = makeConnection();
     const hass = makeHass(conn);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const callService = hass.callService as unknown as jest.Mock;
+    const callService = hass.callService as unknown as Mock;
     callService.mockReturnValue(Promise.resolve());
 
     const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
@@ -271,7 +267,7 @@ describe('MeshtasticChatCard render', () => {
   it('does not send when the input is empty or only whitespace', async () => {
     const conn = makeConnection();
     const hass = makeHass(conn);
-    (hass.callService as jest.Mock).mockReturnValue(Promise.resolve());
+    (hass.callService as unknown as Mock).mockReturnValue(Promise.resolve());
 
     const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
       hass: HomeAssistant;

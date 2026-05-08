@@ -50,16 +50,16 @@ window.customCards.push({
 
 @customElement(`${cardId}${DEV ? '-dev' : ''}`)
 export class MeshtasticChatCard extends LitElement {
-  @property({ attribute: false }) public hass!: HomeAssistant;
+  @property({ attribute: false }) accessor hass!: HomeAssistant;
 
-  @state() private _config?: ChatCardConfig;
-  @state() private _messages: ChatMessage[] = [];
-  @state() private _error?: string;
-  @state() private _loading = false;
-  @state() private _sortOverride?: 'asc' | 'desc';
-  @state() private _draft = '';
-  @state() private _sending = false;
-  @state() private _sendError?: string;
+  @state() accessor _config: ChatCardConfig | undefined = undefined;
+  @state() accessor _messages: ChatMessage[] = [];
+  @state() accessor _error: string | undefined = undefined;
+  @state() accessor _loading = false;
+  @state() accessor _sortOverride: 'asc' | 'desc' | undefined = undefined;
+  @state() accessor _draft = '';
+  @state() accessor _sending = false;
+  @state() accessor _sendError: string | undefined = undefined;
 
   private _unsubscribe?: Unsubscribe;
   private _subscribedEntity?: string;
@@ -397,7 +397,7 @@ export class MeshtasticChatCard extends LitElement {
             ? html`<div class="empty">No messages yet.</div>`
             : nothing}
           ${repeat(
-            this._sortOrder() === 'desc' ? [...this._messages].reverse() : this._messages,
+            this._sortOrder() === 'desc' ? this._messages.toReversed() : this._messages,
             (m) => m.id,
             (m) => this._renderRow(m),
           )}

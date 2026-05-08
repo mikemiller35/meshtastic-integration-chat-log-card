@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it } from 'vitest';
 
 import { appendUnique, trimMessages } from '../messages.js';
 import type { ChatMessage } from '../types.js';
