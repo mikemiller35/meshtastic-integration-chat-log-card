@@ -1,0 +1,41 @@
+src/index.ts
+  8fadacd5278d92b7 53,55-62,400
+eslint.config.mjs
+  8fadacd5278d92b7 6,48
+tsconfig.json
+  8fadacd5278d92b7 3,6,14
+src/__tests__/live.test.ts
+  8fadacd5278d92b7 1,17-18,42,124,137
+src/__tests__/render.test.ts
+  8fadacd5278d92b7 6,20,43,270
+vitest.config.ts
+  8fadacd5278d92b7 1-14
+src/__tests__/history.test.ts
+  8fadacd5278d92b7 1,8,113-115
+package.json
+  8fadacd5278d92b7 35,39,46-47,56-59
+src/__tests__/messages.test.ts
+  8fadacd5278d92b7 1
+src/__tests__/discovery.test.ts
+  8fadacd5278d92b7 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "af1608eff2a124f6fd6c9f3daf284df80ba8dbbc",
+  "prompts": {
+    "8fadacd5278d92b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "48c754d1-63d4-4b90-995e-7277bc06ad04",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike@mikemiller.tech>",
+      "messages": [],
+      "total_additions": 64,
+      "total_deletions": 73,
+      "accepted_lines": 54,
+      "overriden_lines": 0
+    }
+  }
+}
