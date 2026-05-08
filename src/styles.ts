@@ -25,6 +25,24 @@ export default css`
   .header .meta {
     font-size: 0.8rem;
     color: var(--secondary-text-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header .sort-toggle {
+    background: transparent;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    color: var(--secondary-text-color);
+    border-radius: 4px;
+    padding: 0 6px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .header .sort-toggle:hover {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+    color: var(--primary-text-color);
   }
   .messages {
     flex: 1 1 auto;

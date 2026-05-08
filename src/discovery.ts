@@ -1,6 +1,6 @@
-import { type HomeAssistant } from 'custom-card-helpers';
 import { type HassEntity } from 'home-assistant-js-websocket';
 
+import { type HomeAssistant } from './ha-types';
 import type { MeshtasticChannelStateAttrs } from './types';
 
 // A channel state entry as returned by hass.states. We only narrow the
@@ -13,11 +13,7 @@ export type ChannelState = HassEntity & {
 export const listChannelStates = (hass: HomeAssistant): ChannelState[] => {
   return Object.values(hass.states).filter((s): s is ChannelState => {
     const attrs = s.attributes as MeshtasticChannelStateAttrs;
-    return (
-      attrs.device_class === 'channel' &&
-      typeof s.entity_id === 'string' &&
-      s.entity_id.startsWith('meshtastic.')
-    );
+    return attrs.device_class === 'channel' && typeof s.entity_id === 'string' && s.entity_id.startsWith('meshtastic.');
   });
 };
 
@@ -39,9 +35,8 @@ export const resolveGatewayName = (hass: HomeAssistant, channel: ChannelState): 
   }
 
   // As a last resort try the device registry on the hass object.
-  const devices = (hass as unknown as { devices?: Record<string, { name?: string; name_by_user?: string }> }).devices;
-  if (devices) {
-    for (const dev of Object.values(devices)) {
+  if (hass.devices) {
+    for (const dev of Object.values(hass.devices)) {
       const name = dev.name_by_user ?? dev.name;
       if (name) {
         return name;

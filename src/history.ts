@@ -1,5 +1,4 @@
-import { type HomeAssistant } from 'custom-card-helpers';
-
+import { type HomeAssistant } from './ha-types';
 import { DEFAULT_HISTORY_DAYS, type ChatMessage, type LogbookEntry } from './types';
 
 // Logbook describer in the meshtastic integration formats messages as:
@@ -37,7 +36,7 @@ export const loadHistory = async (
   const days = options.days ?? DEFAULT_HISTORY_DAYS;
   const startTime = new Date(Date.now() - days * 86_400_000).toISOString();
 
-  let entries: LogbookEntry[] = [];
+  let entries: LogbookEntry[];
   try {
     entries = await hass.callWS<LogbookEntry[]>({
       type: 'logbook/get_events',
@@ -56,7 +55,13 @@ export const loadHistory = async (
     if (entry.domain && entry.domain !== 'meshtastic') continue;
     if (entry.entity_id && entry.entity_id !== entityId) continue;
 
-    const parsed = parseLogbookMessage(entry.message);
+    // Prefer the meshtastic logbook describer's `«…» by …` format.
+    // If the upstream describer ever changes, fall back to using the raw
+    // `message`/`name` so the card still degrades gracefully instead of
+    // showing nothing.
+    const parsed =
+      parseLogbookMessage(entry.message) ??
+      (entry.message ? { message: entry.message, fromName: entry.name?.trim() ?? 'Unknown' } : null);
     if (!parsed) continue;
 
     const time = toIsoTime(entry.when);

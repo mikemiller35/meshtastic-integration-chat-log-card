@@ -1,8 +1,4 @@
 {
-  "cSpell.words": [
-    "dimgray",
-    "Hacs",
-    "Hass",
-    "homeassistant"
-  ]
+  "coverage-gutters.coverageFileNames": ["coverage/clover.xml"],
+  "cSpell.words": ["dimgray", "Hacs", "Hass", "homeassistant"]
 }

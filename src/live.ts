@@ -1,10 +1,5 @@
-import { type HomeAssistant } from 'custom-card-helpers';
-
-import {
-  MESHTASTIC_MESSAGE_LOG_EVENT,
-  type ChatMessage,
-  type MeshtasticMessageLogEvent,
-} from './types';
+import { type HomeAssistant } from './ha-types';
+import { MESHTASTIC_MESSAGE_LOG_EVENT, type ChatMessage, type MeshtasticMessageLogEvent } from './types';
 
 export type Unsubscribe = () => void;
 
@@ -16,25 +11,22 @@ export const subscribeMessageLog = async (
   cb: (msg: ChatMessage) => void,
 ): Promise<Unsubscribe> => {
   let counter = 0;
-  const unsub = await hass.connection.subscribeEvents<MeshtasticMessageLogEvent>(
-    (event) => {
-      const data = event.data;
-      if (data.entity_id !== entityId) return;
+  const unsub = await hass.connection.subscribeEvents<MeshtasticMessageLogEvent>((event) => {
+    const data = event.data;
+    if (data.entity_id !== entityId) return;
 
-      const time = event.time_fired ?? new Date().toISOString();
-      const id = event.context?.id ?? `live-${time}-${String(counter++)}`;
+    const time = event.time_fired ?? new Date().toISOString();
+    const id = event.context?.id ?? `live-${time}-${String(counter++)}`;
 
-      cb({
-        id,
-        time,
-        fromName: data.from_name,
-        message: data.message,
-        pki: Boolean(data.pki),
-        source: 'live',
-      });
-    },
-    MESHTASTIC_MESSAGE_LOG_EVENT,
-  );
+    cb({
+      id,
+      time,
+      fromName: data.from_name,
+      message: data.message,
+      pki: Boolean(data.pki),
+      source: 'live',
+    });
+  }, MESHTASTIC_MESSAGE_LOG_EVENT);
 
   return () => {
     try {
