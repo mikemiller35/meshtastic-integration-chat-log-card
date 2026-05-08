@@ -11,6 +11,7 @@ A custom [Lovelace](https://www.home-assistant.io/dashboards/) card for [Home As
 ## Features
 
 - **History backfill** – on load, pulls up to 7 days of past messages from the HA logbook (`logbook/get_events`).
+- **Send messages** – optional opt-in composer that sends to the configured channel via the integration's `meshtastic.broadcast_channel_message` service.
 
 ## Installation
 
@@ -55,8 +56,8 @@ The card is fully configurable through the card editor, allowing you to customiz
 - Card title
 - Message limit
 - Timestamp display
-- PKI / direct-message badge
 - Sort order
+- Send composer (optional)
 
 ### YAML
 
@@ -75,8 +76,10 @@ channel_entity: meshtastic.my_gateway_channel_primary
 | `title`           | `string`  | —       | Card title. Defaults to the channel entity's `friendly_name`.                                                                                   |
 | `limit`           | `number`  | `200`   | Maximum number of messages to render. Oldest messages are dropped first.                                                                        |
 | `show_timestamps` | `boolean` | `true`  | Show the date and time (for example, `May 7, 14:30`) at the start of each message row. Hover a row to see full second-level precision.          |
-| `show_pki_badge`  | `boolean` | `true`  | Show a 🔒 badge on messages delivered via a PKI/direct encrypted link.                                                                          |
 | `sort_order`      | `string`  | `desc`  | `desc` = newest messages first (top), `asc` = oldest messages first (bottom). The header button overrides this setting for the current session. |
+| `enable_send`     | `boolean` | `false` | Show a composer at the top of the card to send messages to the configured channel via `meshtastic.broadcast_channel_message`.                   |
+
+A 🔒 badge is always shown next to messages delivered via a PKI/direct encrypted link.
 
 ### Full YAML example
 
@@ -86,8 +89,8 @@ channel_entity: meshtastic.my_gateway_channel_primary
 title: 'Base Camp Chat'
 limit: 100
 show_timestamps: true
-show_pki_badge: true
 sort_order: desc
+enable_send: true
 ```
 
 ### Finding Your Channel Entity

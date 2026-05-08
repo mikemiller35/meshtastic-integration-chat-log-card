@@ -52,6 +52,51 @@ export default css`
     flex-direction: column;
     gap: 4px;
   }
+  .composer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  }
+  .composer-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 4px;
+    background: var(--card-background-color, transparent);
+    color: var(--primary-text-color);
+    font: inherit;
+    font-size: 0.92rem;
+    line-height: 1.35;
+  }
+  .composer-input:focus {
+    outline: none;
+    border-color: var(--primary-color, #03a9f4);
+  }
+  .composer-input:disabled {
+    opacity: 0.6;
+  }
+  .composer-send {
+    background: var(--primary-color, #03a9f4);
+    color: var(--text-primary-color, #fff);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .composer-send:disabled {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.12));
+    color: var(--secondary-text-color);
+    cursor: not-allowed;
+  }
+  .composer .send-error {
+    color: var(--error-color, #db4437);
+    font-size: 0.8rem;
+  }
   .empty,
   .error {
     color: var(--secondary-text-color);

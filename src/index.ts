@@ -57,6 +57,9 @@ export class MeshtasticChatCard extends LitElement {
   @state() private _error?: string;
   @state() private _loading = false;
   @state() private _sortOverride?: 'asc' | 'desc';
+  @state() private _draft = '';
+  @state() private _sending = false;
+  @state() private _sendError?: string;
 
   private _unsubscribe?: Unsubscribe;
   private _subscribedEntity?: string;
@@ -80,7 +83,7 @@ export class MeshtasticChatCard extends LitElement {
           selector: { number: { min: 10, max: 1000, step: 10, mode: 'box' } },
         },
         { name: 'show_timestamps', selector: { boolean: {} } },
-        { name: 'show_pki_badge', selector: { boolean: {} } },
+        { name: 'enable_send', selector: { boolean: {} } },
         {
           name: 'sort_order',
           selector: {
@@ -111,8 +114,8 @@ export class MeshtasticChatCard extends LitElement {
       channel_entity: channel_entity ?? '',
       limit: DEFAULT_LIMIT,
       show_timestamps: true,
-      show_pki_badge: true,
       sort_order: 'desc',
+      enable_send: false,
     };
   }
 
@@ -129,8 +132,8 @@ export class MeshtasticChatCard extends LitElement {
     this._config = {
       limit: DEFAULT_LIMIT,
       show_timestamps: true,
-      show_pki_badge: true,
       sort_order: 'desc',
+      enable_send: false,
       ...config,
     };
   }
@@ -280,9 +283,71 @@ export class MeshtasticChatCard extends LitElement {
     });
   }
 
+  private _onDraftInput = (ev: Event): void => {
+    const target = ev.currentTarget as HTMLInputElement;
+    this._draft = target.value;
+    if (this._sendError) this._sendError = undefined;
+  };
+
+  private _onComposerKeydown = (ev: KeyboardEvent): void => {
+    if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      void this._onSend();
+    }
+  };
+
+  private async _onSend(): Promise<void> {
+    if (this._sending) return;
+    const text = this._draft.trim();
+    if (!text) return;
+    const channel = this._config?.channel_entity;
+    if (!channel) return;
+    this._sending = true;
+    this._sendError = undefined;
+    try {
+      await this.hass.callService('meshtastic', 'broadcast_channel_message', {
+        channel,
+        message: text,
+        ack: true,
+      });
+      this._draft = '';
+    } catch (err) {
+      this._sendError = err instanceof Error ? err.message : String(err);
+    } finally {
+      this._sending = false;
+    }
+  }
+
+  private _renderComposer(): TemplateResult {
+    const channel = this._config?.channel_entity;
+    const channelMissing = !channel || !this.hass.states[channel];
+    const disabled = this._sending || channelMissing || this._draft.trim().length === 0;
+    return html`
+      <div class="composer">
+        <input
+          class="composer-input"
+          type="text"
+          placeholder=${channelMissing ? 'Channel unavailable' : 'Send a message…'}
+          .value=${this._draft}
+          ?disabled=${this._sending || channelMissing}
+          @input=${this._onDraftInput}
+          @keydown=${this._onComposerKeydown}
+        />
+        <button
+          class="composer-send"
+          type="button"
+          ?disabled=${disabled}
+          @click=${() => void this._onSend()}
+        >
+          ${this._sending ? 'Sending…' : 'Send'}
+        </button>
+        ${this._sendError ? html`<span class="send-error" title=${this._sendError}>Send failed</span>` : nothing}
+      </div>
+    `;
+  }
+
   private _renderRow(msg: ChatMessage): TemplateResult {
     const showTime = this._config?.show_timestamps !== false;
-    const showPki = this._config?.show_pki_badge !== false;
     const flash = this._flashIds.has(msg.id);
     return html`
       <div class="row ${flash ? 'live-flash' : ''}" title=${new Date(msg.time).toLocaleString()}>
@@ -290,7 +355,7 @@ export class MeshtasticChatCard extends LitElement {
         <span class="body">
           <span class="from">${msg.fromName}</span>
           <span class="text">${msg.message}</span>
-          ${showPki && msg.pki ? html`<span class="pki" title="PKI / direct">🔒</span>` : nothing}
+          ${msg.pki ? html`<span class="pki" title="PKI / direct">🔒</span>` : nothing}
         </span>
       </div>
     `;
@@ -326,6 +391,7 @@ export class MeshtasticChatCard extends LitElement {
         ${!stateObj && !this._error
           ? html`<div class="error">Channel entity not found: ${this._config.channel_entity}</div>`
           : nothing}
+        ${this._config.enable_send ? this._renderComposer() : nothing}
         <div class="messages" @scroll=${this._onScroll}>
           ${this._messages.length === 0 && !this._loading && !this._error
             ? html`<div class="empty">No messages yet.</div>`
