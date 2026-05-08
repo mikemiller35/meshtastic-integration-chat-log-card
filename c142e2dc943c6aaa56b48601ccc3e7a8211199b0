@@ -1,0 +1,33 @@
+src/index.ts
+  8a4a343837e444d0 60-62,86,118,136,286-348,394
+src/styles.ts
+  8a4a343837e444d0 55-99
+README.md
+  8a4a343837e444d0 14,60,80-82,93
+CHANGELOG.md
+  8a4a343837e444d0 3-15,27
+src/types.ts
+  8a4a343837e444d0 15
+src/__tests__/render.test.ts
+  8a4a343837e444d0 134-300
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "c142e2dc943c6aaa56b48601ccc3e7a8211199b0",
+  "prompts": {
+    "8a4a343837e444d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eaa45e6b-7f95-4728-88cf-9954b0fb07f0",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike@mikemiller.tech>",
+      "messages": [],
+      "total_additions": 308,
+      "total_deletions": 14,
+      "accepted_lines": 303,
+      "overriden_lines": 0
+    }
+  }
+}
