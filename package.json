@@ -48,6 +48,7 @@
   },
   "scripts": {
     "start": "rollup -c rollup.config.dev.js --watch",
+    "demo": "rollup -c rollup.config.demo.js --watch",
     "build": "yarn rollup",
     "lint": "eslint src/ --max-warnings 0",
     "format": "prettier . --write",

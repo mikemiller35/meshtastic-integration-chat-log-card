@@ -140,6 +140,34 @@ DEV_OUTPUT_DIR=/path/to/homeassistant/config/www yarn start
 
 Then in HA, register the resource at **Settings → Dashboards → Resources** as `/local/meshtastic-chat-card.js` with type **JavaScript module** ([HA docs](https://developers.home-assistant.io/docs/frontend/custom-ui/registering-resources)).
 
+### Standalone preview page
+
+For iterating on the UI without a Home Assistant instance, run the demo
+harness:
+
+```bash
+yarn demo
+```
+
+This bundles the card plus a small preview page and serves it on
+<http://localhost:5050>. The page mounts the card against a stubbed `hass`
+object backed by mock logbook history, and exposes a controls panel for the
+config options that matter most while developing:
+
+- `title`, `limit`, `sort_order`, `show_timestamps`, `enable_send`
+- Container width / height (HA's grid sizing doesn't apply on a vanilla page)
+- An **Inject message** button that fires a fake `meshtastic_message_log`
+  event so you can see the live-flash animation
+- A **Replay history** button that rebuilds the mock logbook
+
+Send a message with `enable_send` on and the harness echoes it back through
+the live event stream and logs the `callService` payload to the browser
+console — useful for verifying the full round-trip without a radio.
+
+The harness lives in `demo/` and uses the same dev tag
+(`meshtastic-chat-card-dev`) as `yarn start`, so it shares the dev build flag
+behavior described above.
+
 ### Testing the live message path without a radio
 
 The card subscribes to the `meshtastic_message_log` event bus. To exercise the live render path without a real Meshtastic gateway, fire a fake event from HA's **Developer Tools → Events**:
