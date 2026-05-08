@@ -1,0 +1,37 @@
+demo/index.html
+  c164918110a4886c 1-185
+demo/demo.ts
+  c164918110a4886c 1-206
+package.json
+  c164918110a4886c 51
+.gitignore
+  c164918110a4886c 4
+tsconfig.json
+  c164918110a4886c 16
+eslint.config.mjs
+  c164918110a4886c 9
+README.md
+  c164918110a4886c 143-170
+rollup.config.demo.js
+  c164918110a4886c 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "56f0859dea2d1900919c56269dc60e56dc7f89b0",
+  "prompts": {
+    "c164918110a4886c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "adbc0604-ff45-4cd3-9008-8958e0bf5a68",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 547,
+      "total_deletions": 58,
+      "accepted_lines": 491,
+      "overriden_lines": 0
+    }
+  }
+}
