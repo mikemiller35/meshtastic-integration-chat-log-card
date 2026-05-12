@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   listChannelStates,
@@ -11,8 +11,8 @@ import type { HomeAssistant } from '../ha-types.js';
 
 const makeHass = (states: Record<string, unknown>, devices?: HomeAssistant['devices']): HomeAssistant => ({
   states: states as HomeAssistant['states'],
-  callWS: jest.fn() as unknown as HomeAssistant['callWS'],
-  callService: jest.fn() as unknown as HomeAssistant['callService'],
+  callWS: vi.fn(),
+  callService: vi.fn(),
   connection: {} as HomeAssistant['connection'],
   devices,
 });

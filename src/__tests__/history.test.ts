@@ -1,16 +1,16 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, vi } from 'vitest';
 
 import { loadHistory } from '../history.js';
 import type { HomeAssistant } from '../ha-types.js';
 import type { LogbookEntry } from '../types.js';
 
 const makeHass = (entries: LogbookEntry[] | (() => Promise<LogbookEntry[]>)): HomeAssistant => {
-  const callWS = jest.fn(async () => {
+  const callWS = vi.fn(async () => {
     return typeof entries === 'function' ? await entries() : entries;
   }) as unknown as HomeAssistant['callWS'];
   return {
     callWS,
-    callService: jest.fn() as unknown as HomeAssistant['callService'],
+    callService: vi.fn(),
     states: {},
     connection: {} as HomeAssistant['connection'],
   };
@@ -110,9 +110,9 @@ describe('loadHistory', () => {
   });
 
   it('returns [] when callWS rejects, without throwing', async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const callWS = jest.fn(() => Promise.reject(new Error('boom'))) as unknown as HomeAssistant['callWS'];
-    const callService = jest.fn() as unknown as HomeAssistant['callService'];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const callWS = vi.fn(() => Promise.reject(new Error('boom'))) as unknown as HomeAssistant['callWS'];
+    const callService = vi.fn() as unknown as HomeAssistant['callService'];
     const hass: HomeAssistant = {
       callWS,
       callService,

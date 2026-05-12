@@ -1,20 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["es2020", "dom", "dom.iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "strict": true,
-    "noImplicitAny": false,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "experimentalDecorators": true,
-    "esModuleInterop": true,
-    "types": ["jest", "node"]
+    "esModuleInterop": true
   },
-  "include": ["src"]
+  "include": ["src", "demo"]
 }

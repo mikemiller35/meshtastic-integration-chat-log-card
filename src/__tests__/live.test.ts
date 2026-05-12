@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import { subscribeMessageLog } from '../live.js';
 import type { HomeAssistant } from '../ha-types.js';
@@ -7,15 +7,15 @@ import type { ChatMessage, MeshtasticMessageLogEvent } from '../types.js';
 type SubscribeEventsFn = (cb: (event: MeshtasticMessageLogEvent) => void, eventType: string) => Promise<() => void>;
 
 interface FakeConnection {
-  subscribeEvents: jest.Mock<SubscribeEventsFn>;
+  subscribeEvents: Mock<SubscribeEventsFn>;
   emit: (event: MeshtasticMessageLogEvent) => void;
-  unsubscribe: jest.Mock<() => void>;
+  unsubscribe: Mock<() => void>;
 }
 
 const makeConnection = (): FakeConnection => {
   let listener: ((event: MeshtasticMessageLogEvent) => void) | undefined;
-  const unsubscribe = jest.fn<() => void>();
-  const subscribeEvents = jest.fn<SubscribeEventsFn>().mockImplementation((cb) => {
+  const unsubscribe = vi.fn<() => void>();
+  const subscribeEvents = vi.fn<SubscribeEventsFn>().mockImplementation((cb) => {
     listener = cb;
     return Promise.resolve(unsubscribe);
   });
@@ -30,8 +30,8 @@ const makeConnection = (): FakeConnection => {
 
 const makeHass = (conn: FakeConnection): HomeAssistant => ({
   states: {},
-  callWS: jest.fn() as unknown as HomeAssistant['callWS'],
-  callService: jest.fn() as unknown as HomeAssistant['callService'],
+  callWS: vi.fn(),
+  callService: vi.fn(),
   connection: conn as unknown as HomeAssistant['connection'],
 });
 
@@ -39,7 +39,7 @@ describe('subscribeMessageLog', () => {
   it('subscribes to the meshtastic_message_log event', async () => {
     const conn = makeConnection();
     const hass = makeHass(conn);
-    const cb = jest.fn();
+    const cb = vi.fn();
     await subscribeMessageLog(hass, 'meshtastic.ch', cb);
 
     expect(conn.subscribeEvents).toHaveBeenCalledTimes(1);
@@ -121,7 +121,7 @@ describe('subscribeMessageLog', () => {
   it('returned unsubscribe function calls the underlying unsubscribe', async () => {
     const conn = makeConnection();
     const hass = makeHass(conn);
-    const cb = jest.fn();
+    const cb = vi.fn();
     const unsub = await subscribeMessageLog(hass, 'meshtastic.ch', cb);
 
     unsub();
@@ -134,7 +134,7 @@ describe('subscribeMessageLog', () => {
       throw new Error('already gone');
     });
     const hass = makeHass(conn);
-    const cb = jest.fn();
+    const cb = vi.fn();
     const unsub = await subscribeMessageLog(hass, 'meshtastic.ch', cb);
 
     expect(() => {

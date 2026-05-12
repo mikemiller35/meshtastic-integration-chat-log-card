@@ -1,13 +1,12 @@
 import eslint from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
-import jestPlugin from 'eslint-plugin-jest';
 import tseslint from 'typescript-eslint';
 
-const rootConfigFiles = ['eslint.config.mjs', 'jest.config.js'];
+const rootConfigFiles = ['eslint.config.mjs', 'vitest.config.ts'];
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'dist-dev/**', 'coverage/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'dist-dev/**', 'demo/dist/**', 'coverage/**', 'node_modules/**'] },
   // apply default config
   prettierConfig,
   eslint.configs.recommended,
@@ -42,24 +41,11 @@ export default tseslint.config(
       ],
     },
   },
-  // jest-specific config for tests
-  {
-    files: ['src/**/*.test.ts', 'src/__tests__/**/*.ts'],
-    plugins: { jest: jestPlugin },
-    languageOptions: {
-      globals: {
-        ...globals.jest,
-      },
-    },
-    rules: {
-      ...jestPlugin.configs.recommended.rules,
-    },
-  },
   // disable type checking for root config files
   {
     files: rootConfigFiles,
     ...tseslint.configs.disableTypeChecked,
-    languageOptions: { sourceType: 'commonjs' },
+    languageOptions: { sourceType: 'module' },
     rules: {
       ...tseslint.configs.disableTypeChecked.rules,
       '@typescript-eslint/no-require-imports': 'off',
