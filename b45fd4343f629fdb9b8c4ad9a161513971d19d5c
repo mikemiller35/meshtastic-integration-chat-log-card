@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "b45fd4343f629fdb9b8c4ad9a161513971d19d5c",
+  "prompts": {
+    "ada71ad8ed38f88a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ebd76ada-d84e-4603-97a8-e8aa886f5690",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike@mikemiller.tech>",
+      "messages": [],
+      "total_additions": 238,
+      "total_deletions": 84,
+      "accepted_lines": 216,
+      "overriden_lines": 0
+    }
+  }
+}
