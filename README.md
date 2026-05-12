@@ -4,8 +4,6 @@ A custom [Lovelace](https://www.home-assistant.io/dashboards/) card for [Home As
 
 ## Screenshots
 
-<!-- TODO: replace with a real screenshot -->
-
 ![meshtastic-chat-card](.github/images/screenshot.png)
 
 ## Features
