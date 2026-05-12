@@ -1,13 +1,9 @@
-/**
- * @jest-environment jsdom
- */
-
 // Lit + jsdom render test for MeshtasticChatCard. This is intentionally a
 // minimal smoke test: we mount the card with a stubbed `hass`, fire a fake
 // `meshtastic_message_log` event through our stub `subscribeEvents`, and
 // assert that a row appears in the rendered output.
 
-import { beforeAll, describe, expect, it, jest } from '@jest/globals';
+import { beforeAll, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { HomeAssistant } from '../ha-types.js';
 import type { MeshtasticMessageLogEvent } from '../types.js';
@@ -15,13 +11,13 @@ import type { MeshtasticMessageLogEvent } from '../types.js';
 type SubscribeEventsFn = (cb: (event: MeshtasticMessageLogEvent) => void, eventType: string) => Promise<() => void>;
 
 interface FakeConnection {
-  subscribeEvents: jest.Mock<SubscribeEventsFn>;
+  subscribeEvents: Mock<SubscribeEventsFn>;
   emit: (event: MeshtasticMessageLogEvent) => void;
 }
 
 const makeConnection = (): FakeConnection => {
   let listener: ((event: MeshtasticMessageLogEvent) => void) | undefined;
-  const subscribeEvents = jest.fn<SubscribeEventsFn>().mockImplementation((cb) => {
+  const subscribeEvents = vi.fn<SubscribeEventsFn>().mockImplementation((cb) => {
     listener = cb;
     return Promise.resolve(() => undefined);
   });
@@ -44,8 +40,8 @@ const makeHass = (conn: FakeConnection): HomeAssistant => ({
       context: { id: '', user_id: null, parent_id: null },
     },
   },
-  callWS: jest.fn(() => Promise.resolve([])) as unknown as HomeAssistant['callWS'],
-  callService: jest.fn() as unknown as HomeAssistant['callService'],
+  callWS: vi.fn(() => Promise.resolve([])) as unknown as HomeAssistant['callWS'],
+  callService: vi.fn(),
   connection: conn as unknown as HomeAssistant['connection'],
 });
 
@@ -128,6 +124,173 @@ describe('MeshtasticChatCard render', () => {
     expect(rows.length).toBe(1);
     expect(rows[0]?.textContent).toContain('Alice');
     expect(rows[0]?.textContent).toContain('hello mesh');
+
+    document.body.removeChild(el);
+  });
+
+  it('always renders the lock badge when a message has pki: true', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch' });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+    await flush();
+
+    conn.emit({
+      event_type: 'meshtastic_message_log',
+      data: {
+        entity_id: 'meshtastic.ch',
+        from_name: 'Bob',
+        message: 'secret',
+        pki: true,
+      },
+      time_fired: '2023-05-01T12:01:00.000Z',
+      context: { id: 'ctx-2', user_id: null, parent_id: null },
+    });
+
+    await flush();
+    await el.updateComplete;
+
+    const lock = el.shadowRoot?.querySelector('.row .pki');
+    expect(lock).toBeTruthy();
+    expect(lock?.textContent).toContain('🔒');
+
+    document.body.removeChild(el);
+  });
+
+  it('does not render the composer by default', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch' });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.querySelector('.composer')).toBeNull();
+
+    document.body.removeChild(el);
+  });
+
+  it('renders the composer when enable_send is true', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch', enable_send: true });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const composer = el.shadowRoot?.querySelector('.composer');
+    expect(composer).toBeTruthy();
+    expect(composer?.querySelector('.composer-input')).toBeTruthy();
+    expect(composer?.querySelector('.composer-send')).toBeTruthy();
+
+    document.body.removeChild(el);
+  });
+
+  it('sends a broadcast_channel_message and clears the input on success', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const callService = hass.callService as unknown as Mock;
+    callService.mockReturnValue(Promise.resolve());
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch', enable_send: true });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const input = el.shadowRoot?.querySelector<HTMLInputElement>('.composer-input');
+    const button = el.shadowRoot?.querySelector<HTMLButtonElement>('.composer-send');
+    expect(input).toBeTruthy();
+    expect(button).toBeTruthy();
+
+    if (!input || !button) throw new Error('composer not found');
+
+    input.value = 'hello world';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+
+    expect(button.disabled).toBe(false);
+
+    button.click();
+    await flush();
+    await el.updateComplete;
+
+    expect(callService).toHaveBeenCalledWith('meshtastic', 'broadcast_channel_message', {
+      channel: 'meshtastic.ch',
+      message: 'hello world',
+      ack: true,
+    });
+
+    const inputAfter = el.shadowRoot?.querySelector<HTMLInputElement>('.composer-input');
+    expect(inputAfter?.value).toBe('');
+
+    document.body.removeChild(el);
+  });
+
+  it('does not send when the input is empty or only whitespace', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+    (hass.callService as unknown as Mock).mockReturnValue(Promise.resolve());
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch', enable_send: true });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const input = el.shadowRoot?.querySelector<HTMLInputElement>('.composer-input');
+    const button = el.shadowRoot?.querySelector<HTMLButtonElement>('.composer-send');
+    if (!input || !button) throw new Error('composer not found');
+
+    input.value = '   ';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+
+    expect(button.disabled).toBe(true);
 
     document.body.removeChild(el);
   });

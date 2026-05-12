@@ -4,13 +4,12 @@ A custom [Lovelace](https://www.home-assistant.io/dashboards/) card for [Home As
 
 ## Screenshots
 
-<!-- TODO: replace with a real screenshot -->
-
 ![meshtastic-chat-card](.github/images/screenshot.png)
 
 ## Features
 
 - **History backfill** – on load, pulls up to 7 days of past messages from the HA logbook (`logbook/get_events`).
+- **Send messages** – optional opt-in composer that sends to the configured channel via the integration's `meshtastic.broadcast_channel_message` service.
 
 ## Installation
 
@@ -55,8 +54,8 @@ The card is fully configurable through the card editor, allowing you to customiz
 - Card title
 - Message limit
 - Timestamp display
-- PKI / direct-message badge
 - Sort order
+- Send composer (optional)
 
 ### YAML
 
@@ -75,8 +74,10 @@ channel_entity: meshtastic.my_gateway_channel_primary
 | `title`           | `string`  | —       | Card title. Defaults to the channel entity's `friendly_name`.                                                                                   |
 | `limit`           | `number`  | `200`   | Maximum number of messages to render. Oldest messages are dropped first.                                                                        |
 | `show_timestamps` | `boolean` | `true`  | Show the date and time (for example, `May 7, 14:30`) at the start of each message row. Hover a row to see full second-level precision.          |
-| `show_pki_badge`  | `boolean` | `true`  | Show a 🔒 badge on messages delivered via a PKI/direct encrypted link.                                                                          |
 | `sort_order`      | `string`  | `desc`  | `desc` = newest messages first (top), `asc` = oldest messages first (bottom). The header button overrides this setting for the current session. |
+| `enable_send`     | `boolean` | `false` | Show a composer at the top of the card to send messages to the configured channel via `meshtastic.broadcast_channel_message`.                   |
+
+A 🔒 badge is always shown next to messages delivered via a PKI/direct encrypted link.
 
 ### Full YAML example
 
@@ -86,8 +87,8 @@ channel_entity: meshtastic.my_gateway_channel_primary
 title: 'Base Camp Chat'
 limit: 100
 show_timestamps: true
-show_pki_badge: true
 sort_order: desc
+enable_send: true
 ```
 
 ### Finding Your Channel Entity
@@ -136,6 +137,34 @@ DEV_OUTPUT_DIR=/path/to/homeassistant/config/www yarn start
 ```
 
 Then in HA, register the resource at **Settings → Dashboards → Resources** as `/local/meshtastic-chat-card.js` with type **JavaScript module** ([HA docs](https://developers.home-assistant.io/docs/frontend/custom-ui/registering-resources)).
+
+### Standalone preview page
+
+For iterating on the UI without a Home Assistant instance, run the demo
+harness:
+
+```bash
+yarn demo
+```
+
+This bundles the card plus a small preview page and serves it on
+<http://localhost:5050>. The page mounts the card against a stubbed `hass`
+object backed by mock logbook history, and exposes a controls panel for the
+config options that matter most while developing:
+
+- `title`, `limit`, `sort_order`, `show_timestamps`, `enable_send`
+- Container width / height (HA's grid sizing doesn't apply on a vanilla page)
+- An **Inject message** button that fires a fake `meshtastic_message_log`
+  event so you can see the live-flash animation
+- A **Replay history** button that rebuilds the mock logbook
+
+Send a message with `enable_send` on and the harness echoes it back through
+the live event stream and logs the `callService` payload to the browser
+console — useful for verifying the full round-trip without a radio.
+
+The harness lives in `demo/` and uses the same dev tag
+(`meshtastic-chat-card-dev`) as `yarn start`, so it shares the dev build flag
+behavior described above.
 
 ### Testing the live message path without a radio
 
