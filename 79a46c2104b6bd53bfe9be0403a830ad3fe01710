@@ -1,0 +1,29 @@
+src/index.ts
+  29aacb21966a1897 313-315,317-324
+docs/sent-message-echo.md
+  29aacb21966a1897 1-66
+README.md
+  29aacb21966a1897 12
+src/__tests__/render.test.ts
+  29aacb21966a1897 267-340
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "79a46c2104b6bd53bfe9be0403a830ad3fe01710",
+  "prompts": {
+    "29aacb21966a1897": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a743071e-4a40-47db-bdd0-8738aa465196",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike@mikemiller.tech>",
+      "messages": [],
+      "total_additions": 154,
+      "total_deletions": 2,
+      "accepted_lines": 152,
+      "overriden_lines": 1
+    }
+  }
+}
