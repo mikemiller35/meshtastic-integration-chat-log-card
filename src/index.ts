@@ -310,6 +310,18 @@ export class MeshtasticChatCard extends LitElement {
         message: text,
         ack: true,
       });
+      // The upstream integration does not fire `meshtastic_message_log` or
+      // write a logbook entry for outbound messages (see docs/sent-message-echo.md
+      // and https://github.com/meshtastic/home-assistant/issues/59), so echo
+      // locally for instant feedback gone on reload.
+      this._appendMessage({
+        id: `sent-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
+        time: new Date().toISOString(),
+        fromName: 'You',
+        message: text,
+        pki: false,
+        source: 'live',
+      });
       this._draft = '';
     } catch (err) {
       this._sendError = err instanceof Error ? err.message : String(err);
@@ -333,12 +345,7 @@ export class MeshtasticChatCard extends LitElement {
           @input=${this._onDraftInput}
           @keydown=${this._onComposerKeydown}
         />
-        <button
-          class="composer-send"
-          type="button"
-          ?disabled=${disabled}
-          @click=${() => void this._onSend()}
-        >
+        <button class="composer-send" type="button" ?disabled=${disabled} @click=${() => void this._onSend()}>
           ${this._sending ? 'Sending…' : 'Send'}
         </button>
         ${this._sendError ? html`<span class="send-error" title=${this._sendError}>Send failed</span>` : nothing}
