@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  e18bf95d89cfddce 6-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "3f4e9133c14075149983ef57b8a1af11e255a375",
+  "prompts": {
+    "e18bf95d89cfddce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5f3356eb-9c5b-457d-bcd9-c6fec8ead309",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mike Miller <mike@mikemiller.tech>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
