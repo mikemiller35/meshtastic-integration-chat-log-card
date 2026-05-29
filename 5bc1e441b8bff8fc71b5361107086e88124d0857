@@ -1,0 +1,27 @@
+.github/workflows/release.yml
+  a683bb8007af7216 21-22
+.github/workflows/ci.yml
+  a683bb8007af7216 17-18,31-32,45-46,59-60
+.github/actions/setup/action.yml
+  a683bb8007af7216 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "5bc1e441b8bff8fc71b5361107086e88124d0857",
+  "prompts": {
+    "a683bb8007af7216": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40594bbc-141f-4bec-9377-4382847d3045",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mike Miller <mike@mikemiller.tech>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 78,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}
