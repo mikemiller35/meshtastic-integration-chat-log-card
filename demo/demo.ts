@@ -26,7 +26,7 @@ const SAMPLE_MESSAGES = [
   'trail conditions look good',
   'battery 78%',
   'GPS lock acquired',
-  '↑ relay heard',
+  'relay heard',
 ];
 
 const sample = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -88,22 +88,11 @@ const makeFakeHass = (state: DemoState): HomeAssistant => {
     callService: (domain: string, service: string, data?: Record<string, unknown>): Promise<unknown> => {
       // eslint-disable-next-line no-console
       console.info('[demo] callService', domain, service, data);
-      if (domain === 'meshtastic' && service === 'broadcast_channel_message' && data) {
-        // Echo the sent message back through the live event stream so you can
-        // see the round-trip in the UI.
-        const message = typeof data.message === 'string' ? data.message : '';
-        state.emit({
-          event_type: MESSAGE_LOG_EVENT,
-          data: {
-            entity_id: CHANNEL_ENTITY,
-            from_name: 'You',
-            message,
-            pki: false,
-          },
-          time_fired: new Date().toISOString(),
-          context: { id: `sent-${String(Date.now())}`, user_id: null, parent_id: null },
-        });
-      }
+      // Intentionally do NOT echo outbound messages back through the live
+      // event stream. The upstream Meshtastic integration never reports sent
+      // messages to HA's event bus or logbook (see docs/sent-message-echo.md),
+      // so the card adds its own in-memory "You" echo in _onSend. Emitting a
+      // fake event here would double-print every sent message.
       return Promise.resolve(undefined);
     },
   };

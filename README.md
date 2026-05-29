@@ -9,7 +9,7 @@ A custom [Lovelace](https://www.home-assistant.io/dashboards/) card for [Home As
 ## Features
 
 - **History backfill** – on load, pulls up to 7 days of past messages from the HA logbook (`logbook/get_events`).
-- **Send messages** – optional opt-in composer that sends to the configured channel via the integration's `meshtastic.broadcast_channel_message` service.
+- **Send messages** – optional opt-in composer that sends to the configured channel via the integration's `meshtastic.broadcast_channel_message` service. Your own sent messages are echoed locally in the card for instant feedback; see [docs/sent-message-echo.md](docs/sent-message-echo.md) for the trade-offs (the echo is in-memory only and does not persist across reloads).
 
 ## Installation
 

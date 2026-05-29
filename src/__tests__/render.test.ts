@@ -264,6 +264,80 @@ describe('MeshtasticChatCard render', () => {
     document.body.removeChild(el);
   });
 
+  it('appends an optimistic "You" row in the chat log after a successful send', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+    (hass.callService as unknown as Mock).mockReturnValue(Promise.resolve());
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch', enable_send: true });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const input = el.shadowRoot?.querySelector<HTMLInputElement>('.composer-input');
+    const button = el.shadowRoot?.querySelector<HTMLButtonElement>('.composer-send');
+    if (!input || !button) throw new Error('composer not found');
+
+    input.value = 'optimistic hi';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+
+    button.click();
+    await flush();
+    await el.updateComplete;
+
+    const rows = el.shadowRoot?.querySelectorAll('.row') ?? [];
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.textContent).toContain('You');
+    expect(rows[0]?.textContent).toContain('optimistic hi');
+
+    document.body.removeChild(el);
+  });
+
+  it('does not append an optimistic row when the send fails', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+    (hass.callService as unknown as Mock).mockImplementation(() => Promise.reject(new Error('boom')));
+
+    const el = document.createElement('meshtastic-chat-card') as HTMLElement & {
+      hass: HomeAssistant;
+      setConfig: (cfg: Record<string, unknown>) => void;
+      updateComplete: Promise<boolean>;
+    };
+    el.setConfig({ channel_entity: 'meshtastic.ch', enable_send: true });
+    el.hass = hass;
+    document.body.appendChild(el);
+
+    await el.updateComplete;
+    await flush();
+    await el.updateComplete;
+
+    const input = el.shadowRoot?.querySelector<HTMLInputElement>('.composer-input');
+    const button = el.shadowRoot?.querySelector<HTMLButtonElement>('.composer-send');
+    if (!input || !button) throw new Error('composer not found');
+
+    input.value = 'will fail';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+
+    button.click();
+    await flush();
+    await el.updateComplete;
+
+    const rows = el.shadowRoot?.querySelectorAll('.row') ?? [];
+    expect(rows.length).toBe(0);
+
+    document.body.removeChild(el);
+  });
+
   it('does not send when the input is empty or only whitespace', async () => {
     const conn = makeConnection();
     const hass = makeHass(conn);
