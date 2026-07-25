@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { appendUnique, trimMessages } from '../messages.js';
+import { appendUnique, reconcilePending, removeMessage, trimMessages } from '../messages.js';
 import type { ChatMessage } from '../types.js';
 
 const makeMsg = (id: string, message = 'hi'): ChatMessage => ({
@@ -9,7 +9,15 @@ const makeMsg = (id: string, message = 'hi'): ChatMessage => ({
   fromName: 'Tester',
   message,
   pki: false,
+  own: false,
   source: 'live',
+});
+
+const makePending = (id: string, message = 'hi'): ChatMessage => ({
+  ...makeMsg(id, message),
+  fromName: 'You',
+  own: true,
+  pending: true,
 });
 
 describe('trimMessages', () => {
@@ -60,5 +68,47 @@ describe('appendUnique', () => {
     const result = appendUnique(msgs, makeMsg('d'), 2);
     expect(result.appended).toBe(true);
     expect(result.messages.map((m) => m.id)).toEqual(['c', 'd']);
+  });
+});
+
+describe('removeMessage', () => {
+  it('drops the message with the given id', () => {
+    const msgs = [makeMsg('a'), makeMsg('b'), makeMsg('c')];
+    expect(removeMessage(msgs, 'b').map((m) => m.id)).toEqual(['a', 'c']);
+    // Original array is not mutated.
+    expect(msgs.map((m) => m.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('returns the same array reference when the id is absent', () => {
+    const msgs = [makeMsg('a')];
+    expect(removeMessage(msgs, 'nope')).toBe(msgs);
+  });
+});
+
+describe('reconcilePending', () => {
+  it('re-keys the optimistic row to the backend id and clears pending', () => {
+    const msgs = [makeMsg('a'), makePending('pending-1', 'on my way')];
+    const result = reconcilePending(msgs, 'pending-1', 'ctx-1');
+
+    expect(result.map((m) => m.id)).toEqual(['a', 'ctx-1']);
+    expect(result[1].pending).toBe(false);
+    // Everything else about the row survives.
+    expect(result[1].message).toBe('on my way');
+    expect(result[1].own).toBe(true);
+    expect(result[1].fromName).toBe('You');
+  });
+
+  it('drops the optimistic row when the backend row already arrived', () => {
+    // The live event beats the service call's response, which is the usual
+    // ordering when sending with ack enabled.
+    const msgs = [makePending('pending-1'), makeMsg('ctx-1')];
+    const result = reconcilePending(msgs, 'pending-1', 'ctx-1');
+
+    expect(result.map((m) => m.id)).toEqual(['ctx-1']);
+  });
+
+  it('returns the same array reference when the optimistic row is gone', () => {
+    const msgs = [makeMsg('a')];
+    expect(reconcilePending(msgs, 'pending-1', 'ctx-1')).toBe(msgs);
   });
 });

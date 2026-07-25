@@ -9,7 +9,7 @@ A custom [Lovelace](https://www.home-assistant.io/dashboards/) card for [Home As
 ## Features
 
 - **History backfill** – on load, pulls up to 7 days of past messages from the HA logbook (`logbook/get_events`).
-- **Send messages** – optional opt-in composer that sends to the configured channel via the integration's `meshtastic.broadcast_channel_message` service. Your own sent messages are echoed locally in the card for instant feedback; see [docs/sent-message-echo.md](docs/sent-message-echo.md) for the trade-offs (the echo is in-memory only and does not persist across reloads).
+- **Send messages** – optional opt-in composer that sends to the configured channel via the integration's `meshtastic.broadcast_channel_message` service. Your own messages appear instantly as `You: …`, marked with an accent bar, and persist across reloads, tabs and devices when the integration reports outbound messages. See [docs/sent-message-echo.md](docs/sent-message-echo.md) for how that works and how the card behaves against an integration that doesn't.
 
 ## Installation
 
@@ -119,7 +119,7 @@ yarn start
 # Production build → dist/meshtastic-chat-card.js
 yarn build
 
-# Type-check (uses tsconfig.test.json so test files are included)
+# Type-check (covers src/ and demo/, including test files)
 yarn typecheck
 
 # Lint
@@ -158,9 +158,11 @@ config options that matter most while developing:
   event so you can see the live-flash animation
 - A **Replay history** button that rebuilds the mock logbook
 
-Send a message with `enable_send` on and the harness echoes it back through
-the live event stream and logs the `callService` payload to the browser
-console — useful for verifying the full round-trip without a radio.
+Send a message with `enable_send` on and the harness logs the `callService`
+payload to the browser console, then echoes the message back through the live
+event stream as an outbound event under the same context id — exactly what the
+integration does. That exercises the full round-trip, including the de-duplication
+that keeps a sent message from rendering twice, without needing a radio.
 
 The harness lives in `demo/` and uses the same dev tag
 (`meshtastic-chat-card-dev`) as `yarn start`, so it shares the dev build flag
@@ -180,6 +182,17 @@ The card subscribes to the `meshtastic_message_log` event bus. To exercise the l
   pki: false
   ```
 
+Add `direction: out` to render it as one of your own messages instead:
+
+```yaml
+entity_id: meshtastic.your_channel_entity
+from_name: My Gateway (!0000006f)
+message: sent from devtools
+pki: false
+direction: out
+to_name: Channel Primary
+```
+
 ### Testing
 
 ```bash
@@ -193,4 +206,4 @@ yarn test:watch
 yarn test:coverage
 ```
 
-Tests live next to the source under `src/__tests__/` and use Jest with `ts-jest` (ESM mode). Pure helpers (`messages.ts`, `history.ts`, `discovery.ts`, `live.ts`) run in the default `node` environment; the Lit render smoke test opts into `jsdom` via a per-file docblock.
+Tests live next to the source under `src/__tests__/` and use [Vitest](https://vitest.dev/). `jsdom` is the environment for every file (set globally in `vitest.config.ts`), which the Lit render test in `render.test.ts` needs; the pure helpers (`messages.ts`, `history.ts`, `discovery.ts`, `live.ts`) do not care either way.

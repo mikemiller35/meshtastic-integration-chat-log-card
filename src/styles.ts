@@ -116,6 +116,18 @@ export default css`
     border-radius: 6px;
     line-height: 1.35;
     font-size: 0.92rem;
+    /* Always reserve the accent gutter so marking a row as own does not shift
+       the columns of every other row. */
+    border-left: 2px solid transparent;
+  }
+  .row.own {
+    border-left-color: var(--primary-color, #03a9f4);
+  }
+  .row.own .from {
+    color: var(--primary-color, #03a9f4);
+  }
+  .row.pending {
+    opacity: 0.6;
   }
   .row:hover {
     background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));

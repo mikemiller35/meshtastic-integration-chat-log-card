@@ -31,6 +31,38 @@ describe('loadHistory', () => {
     });
   });
 
+  it('parses the «message» to name format as an own message', async () => {
+    const hass = makeHass([
+      {
+        when: 1700000000.5,
+        message: '«on my way» to Channel Primary',
+        domain: 'meshtastic',
+        entity_id: 'meshtastic.ch',
+      },
+    ]);
+    const msgs = await loadHistory(hass, 'meshtastic.ch');
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]).toMatchObject({
+      message: 'on my way',
+      fromName: 'You',
+      own: true,
+      source: 'history',
+    });
+  });
+
+  it('treats received messages as not own', async () => {
+    const hass = makeHass([{ when: 1, message: '«hi» by Alice', entity_id: 'meshtastic.ch' }]);
+    const msgs = await loadHistory(hass, 'meshtastic.ch');
+    expect(msgs[0]?.own).toBe(false);
+  });
+
+  it('splits an own message on the last delimiter, not an earlier " by "', async () => {
+    const hass = makeHass([{ when: 1, message: '«stand by for tea» to Channel Primary', entity_id: 'meshtastic.ch' }]);
+    const msgs = await loadHistory(hass, 'meshtastic.ch');
+    expect(msgs[0]?.message).toBe('stand by for tea');
+    expect(msgs[0]?.own).toBe(true);
+  });
+
   it('preserves messages that contain " by " in the body via last-occurrence split', async () => {
     const hass = makeHass([
       { when: 1700000000, message: '«stand by for tea» by Bob', domain: 'meshtastic', entity_id: 'meshtastic.ch' },

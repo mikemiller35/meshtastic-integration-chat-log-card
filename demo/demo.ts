@@ -3,7 +3,7 @@
 // you inject fake live messages so the UI can be exercised without HA.
 
 import type { Connection, HassEntity } from 'home-assistant-js-websocket';
-import type { HomeAssistant } from '../src/ha-types';
+import type { HomeAssistant, ServiceCallResult } from '../src/ha-types';
 import type { ChatCardConfig, LogbookEntry, MeshtasticMessageLogEvent } from '../src/types';
 
 // Inlined to keep this bundle independent of the card bundle (no shared
@@ -52,6 +52,7 @@ const buildHistory = (count: number): LogbookEntry[] => {
 
 const makeFakeHass = (state: DemoState): HomeAssistant => {
   let listener: ((event: MeshtasticMessageLogEvent) => void) | undefined;
+  let sentCount = 0;
 
   const stateObj: HassEntity = {
     entity_id: CHANNEL_ENTITY,
@@ -85,15 +86,29 @@ const makeFakeHass = (state: DemoState): HomeAssistant => {
       }
       return Promise.resolve([] as unknown as T);
     },
-    callService: (domain: string, service: string, data?: Record<string, unknown>): Promise<unknown> => {
+    callService: (domain: string, service: string, data?: Record<string, unknown>): Promise<ServiceCallResult> => {
       // eslint-disable-next-line no-console
       console.info('[demo] callService', domain, service, data);
-      // Intentionally do NOT echo outbound messages back through the live
-      // event stream. The upstream Meshtastic integration never reports sent
-      // messages to HA's event bus or logbook (see docs/sent-message-echo.md),
-      // so the card adds its own in-memory "You" echo in _onSend. Emitting a
-      // fake event here would double-print every sent message.
-      return Promise.resolve(undefined);
+      // Mirror the integration: report the sent message back over the event bus
+      // under the service call's own context. That shared context id is what
+      // lets the card reconcile its optimistic row instead of printing the
+      // message twice, so echoing here exercises the real path.
+      sentCount += 1;
+      const contextId = `demo-sent-${String(sentCount)}`;
+      state.emit({
+        event_type: MESSAGE_LOG_EVENT,
+        data: {
+          entity_id: CHANNEL_ENTITY,
+          from_name: 'Demo Gateway (!deadbeef)',
+          message: String(data?.message ?? ''),
+          pki: false,
+          direction: 'out',
+          to_name: FRIENDLY_NAME,
+        },
+        time_fired: new Date().toISOString(),
+        context: { id: contextId },
+      });
+      return Promise.resolve({ context: { id: contextId } });
     },
   };
 
