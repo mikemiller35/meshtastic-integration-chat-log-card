@@ -30,8 +30,13 @@ export interface ChatMessage {
   fromName: string;
   message: string;
   pki: boolean;
+  // True when this Home Assistant instance sent the message rather than
+  // receiving it off the mesh.
+  own: boolean;
   // Source of the message, useful for debugging.
   source: 'history' | 'live';
+  // Set on an optimistic row that the backend has not confirmed yet.
+  pending?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -40,12 +45,19 @@ export interface ChatMessage {
 
 export const MESHTASTIC_MESSAGE_LOG_EVENT = 'meshtastic_message_log';
 
+export type MessageDirection = 'in' | 'out';
+
 export interface MeshtasticMessageLogData {
   entity_id: string;
   device_id?: string | null;
   from_name: string;
   message: string;
   pki?: boolean;
+  // Absent on integrations that only log received messages, so treat a missing
+  // direction as inbound.
+  direction?: MessageDirection;
+  // Recipient of an outbound message: the channel name, or the peer node for a DM.
+  to_name?: string;
 }
 
 export interface MeshtasticMessageLogEvent {

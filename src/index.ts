@@ -13,7 +13,7 @@ import { DEFAULT_LIMIT, type ChatCardConfig, type ChatMessage } from './types';
 import { loadHistory } from './history';
 import { subscribeMessageLog, type Unsubscribe } from './live';
 import { pickDefaultChannelEntity } from './discovery';
-import { appendUnique, trimMessages } from './messages';
+import { appendUnique, reconcilePending, removeMessage, trimMessages } from './messages';
 
 // `__MESHTASTIC_CARD_DEV__` is replaced at build time by @rollup/plugin-replace
 // (true for the dev rollup config, false for the production build). Declaring
@@ -66,6 +66,7 @@ export class MeshtasticChatCard extends LitElement {
   private _autoStick = true;
   private _scrollEl?: HTMLElement | null;
   private _flashIds = new Set<string>();
+  private _pendingSeq = 0;
 
   // Use the built-in form editor (https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card#using-the-built-in-form-editor).
   // No bespoke editor element is needed.
@@ -304,27 +305,43 @@ export class MeshtasticChatCard extends LitElement {
     if (!channel) return;
     this._sending = true;
     this._sendError = undefined;
+
+    // Show the message straight away rather than waiting on the service call,
+    // which blocks until the mesh acknowledges. Once the call resolves we know
+    // the context id the backend logged the message under, and re-key this row
+    // to it so the live event and the logbook agree it is the same message.
+    const pendingId = `pending-${String(++this._pendingSeq)}`;
+    this._appendMessage({
+      id: pendingId,
+      time: new Date().toISOString(),
+      fromName: 'You',
+      message: text,
+      pki: false,
+      own: true,
+      pending: true,
+      source: 'live',
+    });
+    this._draft = '';
+
     try {
-      await this.hass.callService('meshtastic', 'broadcast_channel_message', {
+      const result = await this.hass.callService('meshtastic', 'broadcast_channel_message', {
         channel,
         message: text,
         ack: true,
       });
-      // The upstream integration does not fire `meshtastic_message_log` or
-      // write a logbook entry for outbound messages (see docs/sent-message-echo.md
-      // and https://github.com/meshtastic/home-assistant/issues/59), so echo
-      // locally for instant feedback gone on reload.
-      this._appendMessage({
-        id: `sent-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
-        time: new Date().toISOString(),
-        fromName: 'You',
-        message: text,
-        pki: false,
-        source: 'live',
-      });
-      this._draft = '';
+      const contextId = result?.context?.id;
+      // Without a context id there is nothing to reconcile against, so leave the
+      // optimistic row as the only record of the send.
+      if (contextId) {
+        this._messages = reconcilePending(this._messages, pendingId, contextId);
+        if (this._flashIds.delete(pendingId)) this._flashIds.add(contextId);
+      }
     } catch (err) {
       this._sendError = err instanceof Error ? err.message : String(err);
+      this._messages = removeMessage(this._messages, pendingId);
+      this._flashIds.delete(pendingId);
+      // Hand the text back so it can be corrected and retried.
+      this._draft = text;
     } finally {
       this._sending = false;
     }
@@ -355,9 +372,12 @@ export class MeshtasticChatCard extends LitElement {
 
   private _renderRow(msg: ChatMessage): TemplateResult {
     const showTime = this._config?.show_timestamps !== false;
-    const flash = this._flashIds.has(msg.id);
+    const classes = ['row'];
+    if (this._flashIds.has(msg.id)) classes.push('live-flash');
+    if (msg.own) classes.push('own');
+    if (msg.pending) classes.push('pending');
     return html`
-      <div class="row ${flash ? 'live-flash' : ''}" title=${new Date(msg.time).toLocaleString()}>
+      <div class=${classes.join(' ')} title=${new Date(msg.time).toLocaleString()}>
         <span class="time">${showTime ? this._formatTime(msg.time) : nothing}</span>
         <span class="body">
           <span class="from">${msg.fromName}</span>

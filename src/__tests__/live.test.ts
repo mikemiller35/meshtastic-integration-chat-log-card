@@ -68,6 +68,40 @@ describe('subscribeMessageLog', () => {
     expect(received).toHaveLength(1);
   });
 
+  it('labels a message with direction=out as own', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+    const received: ChatMessage[] = [];
+    await subscribeMessageLog(hass, 'meshtastic.ch', (msg) => received.push(msg));
+
+    conn.emit({
+      event_type: 'meshtastic_message_log',
+      data: {
+        entity_id: 'meshtastic.ch',
+        from_name: 'Home Gateway (!0000006f)',
+        message: 'on my way',
+        direction: 'out',
+        to_name: 'Channel Primary',
+      },
+    });
+
+    expect(received[0]).toMatchObject({ own: true, fromName: 'You', message: 'on my way' });
+  });
+
+  it('treats a missing direction as inbound, for integrations that only log received messages', async () => {
+    const conn = makeConnection();
+    const hass = makeHass(conn);
+    const received: ChatMessage[] = [];
+    await subscribeMessageLog(hass, 'meshtastic.ch', (msg) => received.push(msg));
+
+    conn.emit({
+      event_type: 'meshtastic_message_log',
+      data: { entity_id: 'meshtastic.ch', from_name: 'Alice', message: 'hi' },
+    });
+
+    expect(received[0]).toMatchObject({ own: false, fromName: 'Alice' });
+  });
+
   it('maps event payload to a ChatMessage with source=live', async () => {
     const conn = makeConnection();
     const hass = makeHass(conn);

@@ -2,16 +2,19 @@ import { type HomeAssistant } from './ha-types';
 import { DEFAULT_HISTORY_DAYS, type ChatMessage, type LogbookEntry } from './types';
 
 // Logbook describer in the meshtastic integration formats messages as:
-//   «<message>» by <from_name>
-// We split on the trailing " by " (last occurrence) so that messages
-// containing " by " survive the round-trip.
-const BACKFILL_MESSAGE_RE = /^«([\s\S]*)»\s+by\s+([\s\S]+)$/;
+//   «<message>» by <from_name>   for messages received off the mesh
+//   «<message>» to <to_name>     for messages Home Assistant sent
+// A logbook row carries no event type, so the verb is what tells us the
+// direction. We split on the trailing delimiter (last occurrence) so that
+// messages containing " by " or " to " survive the round-trip.
+const BACKFILL_MESSAGE_RE = /^«([\s\S]*)»\s+(by|to)\s+([\s\S]+)$/;
 
-const parseLogbookMessage = (raw: string | undefined): { message: string; fromName: string } | null => {
+const parseLogbookMessage = (raw: string | undefined): { message: string; fromName: string; own: boolean } | null => {
   if (!raw) return null;
   const m = BACKFILL_MESSAGE_RE.exec(raw);
   if (!m) return null;
-  return { message: m[1], fromName: m[2].trim() };
+  const own = m[2] === 'to';
+  return { message: m[1], fromName: own ? 'You' : m[3].trim(), own };
 };
 
 const toIsoTime = (when: number | string | undefined): string => {
@@ -61,7 +64,7 @@ export const loadHistory = async (
     // showing nothing.
     const parsed =
       parseLogbookMessage(entry.message) ??
-      (entry.message ? { message: entry.message, fromName: entry.name?.trim() ?? 'Unknown' } : null);
+      (entry.message ? { message: entry.message, fromName: entry.name?.trim() ?? 'Unknown', own: false } : null);
     if (!parsed) continue;
 
     const time = toIsoTime(entry.when);
@@ -74,6 +77,7 @@ export const loadHistory = async (
       fromName: parsed.fromName,
       message: parsed.message,
       pki,
+      own: parsed.own,
       source: 'history',
     });
   }

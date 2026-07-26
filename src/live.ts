@@ -17,13 +17,15 @@ export const subscribeMessageLog = async (
 
     const time = event.time_fired ?? new Date().toISOString();
     const id = event.context?.id ?? `live-${time}-${String(counter++)}`;
+    const own = data.direction === 'out';
 
     cb({
       id,
       time,
-      fromName: data.from_name,
+      fromName: own ? 'You' : data.from_name,
       message: data.message,
       pki: Boolean(data.pki),
+      own,
       source: 'live',
     });
   }, MESHTASTIC_MESSAGE_LOG_EVENT);
